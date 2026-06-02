@@ -1,0 +1,19 @@
+{
+  "name": "Soto's Dog Grooming",
+  "short_name": "Soto's",
+  "description": "Dog grooming client, vaccine and appointment manager.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f4f5fb",
+  "theme_color": "#7B61FF",
+  "icons": [
+    {
+      "src": "icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

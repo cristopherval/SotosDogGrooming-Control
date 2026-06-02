@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(Get-ChildItem -Force | Select-Object Name; \"---\"; $PWD.Path)",
+      "PowerShell($node = \\(Get-Command node -ErrorAction SilentlyContinue\\); if \\($node\\) { node --version } else { \"no-node\" })",
+      "PowerShell($p = \\(Get-Command python -ErrorAction SilentlyContinue\\); if \\($p\\) { python --version } else { \"no-python\" }; $py = \\(Get-Command py -ErrorAction SilentlyContinue\\); if \\($py\\) { \"py-launcher-present\" } else { \"no-py\" })"
+    ]
+  }
+}
