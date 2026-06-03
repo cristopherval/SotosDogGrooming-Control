@@ -1,9 +1,9 @@
 // dogs.js — home list, smart search, advanced filters, dog form, profile, timeline, badges
 import { store } from './store.js';
-import { t } from './i18n.js';
+import { t, getLang } from './i18n.js';
 import {
   $, $$, openModal, closeModal, confirmDialog, toast, escapeHtml, initials,
-  readImageResized, optionsFrom, waLink, smsLink, telLink, fmtDate, todayISO, openLightbox,
+  readImageResized, optionsFrom, waLink, smsLink, telLink, fmtDate, fmtTime, todayISO, openLightbox,
 } from './utils.js';
 import {
   dogVaccineStatus, statusMeta, renderVaccineChecklist, bindVaccineChecklist,
@@ -15,7 +15,7 @@ const filters = { search: '', breed: '', color: '', sex: '', status: '' };
 
 const SEX_OPTIONS = [{ value: 'Male', label: 'male' }, { value: 'Female', label: 'female' }];
 
-const BLADE_NUMBERS = Array.from({ length: 10 }, (_, i) => `#${i + 1}`); // #1 … #10
+const BLADE_NUMBERS = ['#3', '#3½', '#4', '#5', '#7', '#9', '#10', '#15', '#30', '#40'];
 
 /** Build <select> options for a blade field, preserving any legacy/custom value. */
 function bladeOptions(selected = '') {
@@ -25,6 +25,39 @@ function bladeOptions(selected = '') {
   }
   html += BLADE_NUMBERS
     .map((n) => `<option value="${n}" ${n === selected ? 'selected' : ''}>${n}</option>`)
+    .join('');
+  return html;
+}
+
+// Comb attachments — identified by color + cut length (see grooming chart).
+const COMB_OPTIONS = [
+  { size: '1/8"',   en: 'Red',          es: 'Rojo' },
+  { size: '1/4"',   en: 'Dark purple',  es: 'Morado oscuro' },
+  { size: '3/8"',   en: 'Brown',        es: 'Café (marrón)' },
+  { size: '1/2"',   en: 'Light purple', es: 'Morado claro' },
+  { size: '5/8"',   en: 'Blue',         es: 'Azul' },
+  { size: '3/4"',   en: 'Orange',       es: 'Naranja' },
+  { size: '7/8"',   en: 'Dark red',     es: 'Rojo oscuro' },
+  { size: '1"',     en: 'Yellow',       es: 'Amarillo' },
+  { size: '1 1/8"', en: 'Lavender',     es: 'Lavanda' },
+  { size: '1 1/4"', en: 'Green',        es: 'Verde' },
+];
+
+/** Human label for a comb size, e.g. 'Red · 1/8"'. */
+function combLabel(size) {
+  const c = COMB_OPTIONS.find((o) => o.size === size);
+  if (!c) return size;
+  return `${getLang() === 'es' ? c.es : c.en} · ${c.size}`;
+}
+
+/** Build <select> options for a comb field, preserving any legacy/custom value. */
+function combOptions(selected = '') {
+  let html = `<option value="">${escapeHtml(t('select'))}</option>`;
+  if (selected && !COMB_OPTIONS.some((o) => o.size === selected)) {
+    html += `<option value="${escapeHtml(selected)}" selected>${escapeHtml(selected)}</option>`;
+  }
+  html += COMB_OPTIONS
+    .map((o) => `<option value="${escapeHtml(o.size)}" ${o.size === selected ? 'selected' : ''}>${escapeHtml(combLabel(o.size))}</option>`)
     .join('');
   return html;
 }
@@ -142,6 +175,9 @@ export function openDogForm(id) {
 
   const sexOpts = optionsFrom(SEX_OPTIONS.map((o) => ({ value: o.value, label: t(o.label) })), d ? d.sex : '', t('select'));
 
+  const emps = store.data.employees.slice().sort((a, b) => a.fullName.localeCompare(b.fullName));
+  const empOpts = optionsFrom(emps.map((e) => ({ value: e.id, label: e.fullName })), d ? (d.employeeId || '') : '', t('select'));
+
   openModal({
     title: d ? t('dog_edit') : t('dog_new'),
     bodyHTML: `
@@ -179,6 +215,9 @@ export function openDogForm(id) {
       <div class="field"><label class="form-label">${escapeHtml(t('phone'))}</label>
         <input id="dPhone" class="form-control" type="tel" inputmode="tel" value="${d ? escapeHtml(d.phone || '') : ''}" /></div>
 
+      <div class="field"><label class="form-label">${escapeHtml(t('attended_by'))}</label>
+        <select id="dEmp" class="form-select">${empOpts}</select></div>
+
       <label class="form-label" style="margin-top:6px">${escapeHtml(t('grooming_specs'))}</label>
       <div class="form-row">
         <div class="field"><label class="form-label">${escapeHtml(t('blade_head'))}</label>
@@ -186,6 +225,15 @@ export function openDogForm(id) {
         <div class="field"><label class="form-label">${escapeHtml(t('blade_body'))}</label>
           <select id="dBladeB" class="form-select">${bladeOptions(d ? (d.bladeBody || '') : '')}</select></div>
       </div>
+
+      <label class="form-label" style="margin-top:6px">${escapeHtml(t('comb_specs'))}</label>
+      <div class="form-row">
+        <div class="field"><label class="form-label">${escapeHtml(t('comb_head'))}</label>
+          <select id="dCombH" class="form-select">${combOptions(d ? (d.combHead || '') : '')}</select></div>
+        <div class="field"><label class="form-label">${escapeHtml(t('comb_body'))}</label>
+          <select id="dCombB" class="form-select">${combOptions(d ? (d.combBody || '') : '')}</select></div>
+      </div>
+
       <div class="field"><label class="form-label">${escapeHtml(t('notes'))}</label>
         <textarea id="dNotes" class="form-control" rows="2">${d ? escapeHtml(d.notes || '') : ''}</textarea></div>`,
     footHTML: `
@@ -213,12 +261,19 @@ export function openDogForm(id) {
       fileInput.addEventListener('change', async () => {
         const files = [...fileInput.files];
         if (!files.length) return;
+        let failed = 0;
         for (const file of files) {
-          const data = await readImageResized(file);
-          if (data) photos.push(data);
+          try {
+            const data = await readImageResized(file);
+            if (data) photos.push(data);
+          } catch (err) {
+            console.warn('Photo could not be processed', file.name, err);
+            failed++;
+          }
         }
         fileInput.value = ''; // allow re-selecting the same file later
         renderGallery();
+        if (failed) toast(t('photo_error'));
       });
 
       foot.querySelector('[data-act="cancel"]').onclick = closeModal;
@@ -235,8 +290,11 @@ export function openDogForm(id) {
           ownerFirst: $('#dOwnerF', body).value.trim(),
           ownerLast: $('#dOwnerL', body).value.trim(),
           phone: $('#dPhone', body).value.trim(),
+          employeeId: $('#dEmp', body).value,
           bladeHead: $('#dBladeH', body).value.trim(),
           bladeBody: $('#dBladeB', body).value.trim(),
+          combHead: $('#dCombH', body).value.trim(),
+          combBody: $('#dCombB', body).value.trim(),
           notes: $('#dNotes', body).value.trim(),
           photos,
           photo: photos[0] || '', // first photo kept for card/avatar thumbnails
@@ -261,6 +319,7 @@ export function openDogProfile(id) {
 
   // all photos (migrate legacy single-photo records)
   const photos = Array.isArray(dog.photos) ? dog.photos : (dog.photo ? [dog.photo] : []);
+  const groomer = dog.employeeId ? store.getEmployee(dog.employeeId) : null;
 
   function bodyHTML() {
     return `
@@ -283,8 +342,11 @@ export function openDogProfile(id) {
       <div class="info-grid">
         ${infoBox(t('owner'), owner)}
         ${infoBox(t('birthday'), dog.birthday ? fmtDate(dog.birthday) : '')}
+        ${infoBox(t('attended_by'), groomer ? groomer.fullName : '')}
         ${infoBox(t('blade_head'), dog.bladeHead)}
         ${infoBox(t('blade_body'), dog.bladeBody)}
+        ${infoBox(t('comb_head'), dog.combHead ? combLabel(dog.combHead) : '')}
+        ${infoBox(t('comb_body'), dog.combBody ? combLabel(dog.combBody) : '')}
       </div>
 
       ${dog.phone ? `
@@ -357,15 +419,19 @@ function renderTimeline(dog) {
     const emp = a.employeeId ? store.getEmployee(a.employeeId) : null;
     const tags = serviceLabels(a).map((s) => `<span class="tl-tag">${escapeHtml(s)}</span>`).join('');
     const upcoming = a.date >= today;
+    const when = fmtDate(a.date) + (a.time ? ` · ${fmtTime(a.time)}` : '');
     return `
       <div class="tl-item">
-        <div class="tl-date">${fmtDate(a.date)}</div>
+        <div class="tl-date">${when}</div>
         <div class="tl-card">
           <div class="tl-emp"><i class="ti ti-user"></i> ${escapeHtml(emp ? emp.fullName : '—')}</div>
           <div class="tl-services">${tags || '<span class="text-muted small">—</span>'}</div>
-          <div class="d-flex gap-2 mt-2">
-            ${upcoming && dog.phone ? `<button class="btn btn-sm btn-wa" data-remind="${escapeHtml(a.id)}"><i class="ti ti-brand-whatsapp"></i> ${escapeHtml(t('remind'))}</button>` : ''}
-            <button class="btn btn-sm btn-icon text-danger" data-del-appt="${escapeHtml(a.id)}" style="margin-left:auto"><i class="ti ti-trash"></i></button>
+          <div class="d-flex gap-2 mt-2 flex-wrap">
+            ${upcoming && dog.phone ? `
+              <button class="btn btn-sm btn-wa" data-remind-wa="${escapeHtml(a.id)}"><i class="ti ti-brand-whatsapp"></i> ${escapeHtml(t('whatsapp'))}</button>
+              <button class="btn btn-sm btn-sms" data-remind-sms="${escapeHtml(a.id)}"><i class="ti ti-message"></i> ${escapeHtml(t('sms'))}</button>` : ''}
+            <button class="btn btn-sm btn-icon btn-outline-primary" data-edit-appt="${escapeHtml(a.id)}" style="margin-left:auto"><i class="ti ti-pencil"></i></button>
+            <button class="btn btn-sm btn-icon text-danger" data-del-appt="${escapeHtml(a.id)}"><i class="ti ti-trash"></i></button>
           </div>
         </div>
       </div>`;
@@ -373,10 +439,17 @@ function renderTimeline(dog) {
 }
 
 function bindTimeline(body, dog, refresh) {
-  $$('[data-remind]', body).forEach((b) => b.onclick = () => {
-    const appt = store.data.appointments.find((a) => a.id === b.getAttribute('data-remind'));
-    if (appt) sendReminder(appt);
+  const apptById = (id) => store.data.appointments.find((a) => a.id === id);
+  $$('[data-remind-wa]', body).forEach((b) => b.onclick = () => {
+    const appt = apptById(b.getAttribute('data-remind-wa'));
+    if (appt) sendReminder(appt, 'wa');
   });
+  $$('[data-remind-sms]', body).forEach((b) => b.onclick = () => {
+    const appt = apptById(b.getAttribute('data-remind-sms'));
+    if (appt) sendReminder(appt, 'sms');
+  });
+  $$('[data-edit-appt]', body).forEach((b) => b.onclick = () =>
+    openAppointmentForm(dog.id, refresh, b.getAttribute('data-edit-appt')));
   $$('[data-del-appt]', body).forEach((b) => b.onclick = async () => {
     if (await confirmDialog(t('confirm_delete_appt'))) {
       store.deleteAppointment(b.getAttribute('data-del-appt'));

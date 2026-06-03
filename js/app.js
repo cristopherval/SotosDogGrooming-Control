@@ -8,11 +8,12 @@ import {
 import { renderEmployees, openEmployeeForm } from './employees.js';
 import { renderSettings, exportBackup, triggerImport, handleImportFile, setLanguage } from './settings.js';
 import { openVaccineForm } from './vaccines.js';
-import { upcomingAppointments, sendReminder, serviceLabels } from './appointments.js';
+import { upcomingAppointments, sendReminder, serviceLabels, renderAppointments } from './appointments.js';
 import { fmtDate } from './utils.js';
 
 const views = {
   dogs: renderDogs,
+  appointments: renderAppointments,
   employees: renderEmployees,
   settings: renderSettings,
 };

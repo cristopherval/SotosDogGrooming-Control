@@ -14,12 +14,24 @@ export function initials(name = '') {
   return name.trim().split(/\s+/).slice(0, 2).map((w) => w[0] || '').join('').toUpperCase() || '?';
 }
 
-/** YYYY-MM-DD -> localized readable date. */
+/** YYYY-MM-DD -> US date format MM/DD/YYYY. */
 export function fmtDate(iso) {
   if (!iso) return '—';
   const d = new Date(iso + 'T00:00:00');
   if (isNaN(d)) return iso;
-  return d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${mm}/${dd}/${d.getFullYear()}`;
+}
+
+/** "HH:MM" (24h) -> US 12-hour time, e.g. "2:30 PM". Empty string if no time. */
+export function fmtTime(hhmm) {
+  if (!hhmm) return '';
+  const [h, m] = hhmm.split(':').map(Number);
+  if (isNaN(h)) return hhmm;
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  const h12 = h % 12 || 12;
+  return `${h12}:${String(m || 0).padStart(2, '0')} ${ampm}`;
 }
 
 export function todayISO() {
@@ -35,18 +47,31 @@ export function addMonths(iso, months) {
   return d.toISOString().slice(0, 10);
 }
 
-/** Keep only digits for tel/wa links. */
+/** Keep only digits. */
 export function cleanPhone(phone = '') { return phone.replace(/[^\d]/g, ''); }
 
+/**
+ * Normalize a phone number to full international digits (no '+').
+ * Most numbers here are from the USA, so a bare 10-digit number gets the
+ * country code '1' added. Numbers that already include a country code are
+ * left as-is.
+ */
+export function normalizePhone(phone = '') {
+  let d = cleanPhone(phone);
+  if (d.length === 10) d = '1' + d;                 // US/Canada local number
+  // 11 digits starting with 1 -> already US country code; longer -> already international
+  return d;
+}
+
 export function waLink(phone, text = '') {
-  const base = `https://wa.me/${cleanPhone(phone)}`;
+  const base = `https://wa.me/${normalizePhone(phone)}`;
   return text ? `${base}?text=${encodeURIComponent(text)}` : base;
 }
 export function smsLink(phone, text = '') {
-  const p = cleanPhone(phone);
+  const p = '+' + normalizePhone(phone);
   return text ? `sms:${p}?&body=${encodeURIComponent(text)}` : `sms:${p}`;
 }
-export function telLink(phone) { return `tel:${cleanPhone(phone)}`; }
+export function telLink(phone) { return `tel:+${normalizePhone(phone)}`; }
 
 // ---------------- Toast ----------------
 let toastTimer;
@@ -137,31 +162,64 @@ export function confirmDialog(message, opts = {}) {
 }
 
 // ---------------- Photo handling ----------------
+
+/** Load an image from a URL, rejecting on error or after a timeout (never hangs). */
+function loadImage(src, timeout = 20000) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const to = setTimeout(() => { img.src = ''; reject(new Error('image timeout')); }, timeout);
+    img.onload = () => { clearTimeout(to); resolve(img); };
+    img.onerror = () => { clearTimeout(to); reject(new Error('image decode failed')); };
+    img.src = src;
+  });
+}
+
+// Lazily load the heic2any converter (only when an iPhone/Android HEIC file shows up).
+// Bundled locally (./vendor) so it works fully offline once the app is installed.
+let heicLibPromise = null;
+function loadHeicConverter() {
+  if (heicLibPromise) return heicLibPromise;
+  heicLibPromise = new Promise((resolve, reject) => {
+    if (window.heic2any) return resolve(window.heic2any);
+    const s = document.createElement('script');
+    s.src = './vendor/heic2any.min.js';
+    s.onload = () => resolve(window.heic2any);
+    s.onerror = () => reject(new Error('heic converter unavailable'));
+    document.head.appendChild(s);
+  });
+  return heicLibPromise;
+}
+
 /**
  * Read an <input type=file> image, downscale it and return a base64 data-URL (jpeg).
- * Keeps localStorage small while supporting camera/gallery on mobile.
+ * Handles HEIC/HEIF photos (common on Android/iPhone cameras) by converting them
+ * first. Rejects with a clear error instead of silently failing.
  */
-export function readImageResized(file, maxSize = 720, quality = 0.8) {
-  return new Promise((resolve, reject) => {
-    if (!file) return resolve(null);
-    const reader = new FileReader();
-    reader.onerror = reject;
-    reader.onload = () => {
-      const img = new Image();
-      img.onerror = reject;
-      img.onload = () => {
-        let { width, height } = img;
-        if (width > height && width > maxSize) { height = Math.round(height * maxSize / width); width = maxSize; }
-        else if (height > maxSize) { width = Math.round(width * maxSize / height); height = maxSize; }
-        const canvas = document.createElement('canvas');
-        canvas.width = width; canvas.height = height;
-        canvas.getContext('2d').drawImage(img, 0, 0, width, height);
-        resolve(canvas.toDataURL('image/jpeg', quality));
-      };
-      img.src = reader.result;
-    };
-    reader.readAsDataURL(file);
-  });
+export async function readImageResized(file, maxSize = 1280, quality = 0.82) {
+  if (!file) return null;
+
+  let blob = file;
+  const isHeic = /hei[cf]/i.test(file.type || '') || /\.(heic|heif)$/i.test(file.name || '');
+  if (isHeic) {
+    // Browsers can't decode HEIC in <img>; convert to JPEG first.
+    const heic2any = await loadHeicConverter();
+    const out = await heic2any({ blob: file, toType: 'image/jpeg', quality: 0.9 });
+    blob = Array.isArray(out) ? out[0] : out;
+  }
+
+  const url = URL.createObjectURL(blob);
+  try {
+    const img = await loadImage(url);
+    let { width, height } = img;
+    if (width > height && width > maxSize) { height = Math.round(height * maxSize / width); width = maxSize; }
+    else if (height > maxSize) { width = Math.round(width * maxSize / height); height = maxSize; }
+    const canvas = document.createElement('canvas');
+    canvas.width = width || img.width; canvas.height = height || img.height;
+    canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+    return canvas.toDataURL('image/jpeg', quality);
+  } finally {
+    URL.revokeObjectURL(url);
+  }
 }
 
 /** Build a <select> options string with a default placeholder. */

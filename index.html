@@ -109,6 +109,18 @@
       </div>
     </section>
 
+    <!-- ---------- VIEW: APPOINTMENTS ---------- -->
+    <section class="view d-none" data-view="appointments">
+      <div class="view-head">
+        <h1 class="view-title" data-i18n="nav_appointments">Appointments</h1>
+      </div>
+      <div id="apptList" class="appt-list"></div>
+      <div id="apptEmpty" class="empty-state d-none">
+        <i class="ti ti-calendar-off"></i>
+        <p data-i18n="no_appointments">No appointments yet.</p>
+      </div>
+    </section>
+
     <!-- ---------- VIEW: EMPLOYEES ---------- -->
     <section class="view d-none" data-view="employees">
       <div class="view-head">
@@ -194,6 +206,9 @@
   <nav class="bottom-nav">
     <button class="bottom-nav__item is-active" data-nav="dogs">
       <i class="ti ti-dog"></i><span data-i18n="nav_dogs">Dogs</span>
+    </button>
+    <button class="bottom-nav__item" data-nav="appointments">
+      <i class="ti ti-calendar-event"></i><span data-i18n="nav_appointments">Appointments</span>
     </button>
     <button class="bottom-nav__item" data-nav="employees">
       <i class="ti ti-users"></i><span data-i18n="nav_employees">Employees</span>

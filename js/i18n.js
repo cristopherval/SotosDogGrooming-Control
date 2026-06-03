@@ -4,7 +4,9 @@ import { store } from './store.js';
 export const STRINGS = {
   en: {
     brand_subtitle: 'Dog Grooming',
-    nav_dogs: 'Dogs', nav_employees: 'Employees', nav_settings: 'Settings',
+    nav_dogs: 'Dogs', nav_appointments: 'Appointments', nav_employees: 'Employees', nav_settings: 'Settings',
+    no_appointments: 'No appointments yet.',
+    appt_today: 'Today', appt_ontime: 'On time', appt_past: 'Past due',
     add_dog: 'Add Dog', add_employee: 'Add Employee', add: 'Add',
     search_placeholder: 'Search dog or owner…',
     all: 'All', f_breed: 'Breed', f_color: 'Color', f_sex: 'Sex', f_status: 'Vaccine Status',
@@ -18,10 +20,12 @@ export const STRINGS = {
     dog_new: 'New Dog', dog_edit: 'Edit Dog',
     photo_hint: 'Tap to add photos (camera or gallery)',
     add_photos: 'Add photos',
+    photo_error: 'Some photos could not be added (unsupported format).',
     name: 'Name', breed: 'Breed', color: 'Color', sex: 'Sex', birthday: 'Birthday',
     owner_info: 'Owner', owner_first: 'Owner First Name', owner_last: 'Owner Last Name',
-    phone: 'Phone Number', grooming_specs: 'Grooming Specs',
-    blade_head: 'Blade used on Head', blade_body: 'Blade used on Body', notes: 'Notes',
+    phone: 'Phone Number', grooming_specs: 'Blades', attended_by: 'Attended by',
+    blade_head: 'Blade on Head', blade_body: 'Blade on Body', notes: 'Notes',
+    comb_specs: 'Combs', comb_head: 'Comb on Head', comb_body: 'Comb on Body',
     select: 'Select…',
 
     // profile
@@ -37,7 +41,7 @@ export const STRINGS = {
     active: 'Active', inactive: 'Inactive',
 
     // appointment
-    appt_new: 'New Appointment', date: 'Date', employee: 'Employee',
+    appt_new: 'New Appointment', appt_edit: 'Edit Appointment', date: 'Date', time: 'Time', employee: 'Employee',
     services: 'Services', full_service: 'Full Service',
     svc_bath: 'Bath', svc_nail: 'Nail Clipping', svc_anal: 'Anal Gland Expression',
     svc_haircut: 'Haircut', svc_bathdry: 'Bath & Dry',
@@ -71,7 +75,9 @@ export const STRINGS = {
 
   es: {
     brand_subtitle: 'Estética Canina',
-    nav_dogs: 'Perros', nav_employees: 'Empleados', nav_settings: 'Ajustes',
+    nav_dogs: 'Perros', nav_appointments: 'Citas', nav_employees: 'Empleados', nav_settings: 'Ajustes',
+    no_appointments: 'Aún no hay citas.',
+    appt_today: 'Hoy', appt_ontime: 'A tiempo', appt_past: 'Fecha pasada',
     add_dog: 'Agregar Perro', add_employee: 'Agregar Empleado', add: 'Agregar',
     search_placeholder: 'Buscar perro o dueño…',
     all: 'Todos', f_breed: 'Raza', f_color: 'Color', f_sex: 'Sexo', f_status: 'Estado Vacunas',
@@ -84,10 +90,12 @@ export const STRINGS = {
     dog_new: 'Nuevo Perro', dog_edit: 'Editar Perro',
     photo_hint: 'Toca para agregar fotos (cámara o galería)',
     add_photos: 'Agregar fotos',
+    photo_error: 'No se pudieron agregar algunas fotos (formato no soportado).',
     name: 'Nombre', breed: 'Raza', color: 'Color', sex: 'Sexo', birthday: 'Cumpleaños',
     owner_info: 'Dueño', owner_first: 'Nombre del Dueño', owner_last: 'Apellido del Dueño',
-    phone: 'Teléfono', grooming_specs: 'Especificaciones de Corte',
+    phone: 'Teléfono', grooming_specs: 'Cuchillas', attended_by: 'Atendido por',
     blade_head: 'Cuchilla en Cabeza', blade_body: 'Cuchilla en Cuerpo', notes: 'Notas',
+    comb_specs: 'Peines (Combs)', comb_head: 'Comb en Cabeza', comb_body: 'Comb en Cuerpo',
     select: 'Seleccionar…',
 
     edit: 'Editar', delete: 'Eliminar', cancel: 'Cancelar', save: 'Guardar', close: 'Cerrar',
@@ -100,7 +108,7 @@ export const STRINGS = {
     full_name: 'Nombre Completo', role: 'Cargo / Puesto', status: 'Estado',
     active: 'Activo', inactive: 'Inactivo',
 
-    appt_new: 'Nueva Cita', date: 'Fecha', employee: 'Empleado',
+    appt_new: 'Nueva Cita', appt_edit: 'Editar Cita', date: 'Fecha', time: 'Hora', employee: 'Empleado',
     services: 'Servicios', full_service: 'Servicio Completo',
     svc_bath: 'Baño', svc_nail: 'Corte de Uñas', svc_anal: 'Glándulas Anales',
     svc_haircut: 'Corte de Pelo', svc_bathdry: 'Baño y Secado',
