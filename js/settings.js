@@ -1,11 +1,8 @@
-// settings.js — storage gauge, stats, backup export/import, language switch
+// settings.js — cloud status, stats, backup export/import, migration, language switch
 import { store } from './store.js';
 import { t, applyTranslations, getLang } from './i18n.js';
 import { $, $$, confirmDialog, toast } from './utils.js';
 import { renderCatalog } from './vaccines.js';
-
-// Rough localStorage budget for the progress bar (most browsers ~5MB).
-const STORAGE_BUDGET = 5 * 1024 * 1024;
 
 export function renderSettings() {
   const s = store.stats();
@@ -14,11 +11,9 @@ export function renderSettings() {
   $('#statAppointments').textContent = s.appointments;
   $('#statPhotos').textContent = s.photos;
 
-  const kb = s.bytes / 1024;
-  const label = kb > 1024 ? (kb / 1024).toFixed(2) + ' MB' : kb.toFixed(1) + ' KB';
-  $('#storageLabel').textContent = label;
-  const pct = Math.min(100, (s.bytes / STORAGE_BUDGET) * 100);
-  $('#storageBar').style.width = pct.toFixed(1) + '%';
+  // show the "upload local data" card only when an old local database remains
+  const migrateCard = $('#migrateCard');
+  if (migrateCard) migrateCard.classList.toggle('d-none', !store.hasLocalData());
 
   renderCatalog();
   markActiveLang();
@@ -54,9 +49,9 @@ export function handleImportFile(file, onDone) {
     });
     if (!ok) return;
     try {
-      store.importJSON(reader.result);
+      await store.importJSON(reader.result);
       toast(t('restored'));
-      if (typeof onDone === 'function') onDone();
+      if (typeof onDone === 'function') await onDone();
     } catch (e) {
       console.warn('Import failed', e);
       toast(t('invalid_backup'));

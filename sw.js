@@ -1,11 +1,12 @@
 // sw.js — minimal offline cache for the app shell
-const CACHE = 'sotos-v3';
+const CACHE = 'sotos-v7';
 const ASSETS = [
   './',
   './index.html',
   './css/style.css',
   './js/app.js',
   './js/store.js',
+  './js/config.js',
   './js/i18n.js',
   './js/utils.js',
   './js/dogs.js',
@@ -32,14 +33,16 @@ self.addEventListener('activate', (e) => {
 self.addEventListener('fetch', (e) => {
   const req = e.request;
   if (req.method !== 'GET') return;
-  // network-first for navigations, cache-first for assets, fall back to cache offline
+  // Only handle our own app shell. Supabase (auth/REST/storage) and CDN requests
+  // are cross-origin — let them go straight to the network (online-only data).
+  if (new URL(req.url).origin !== self.location.origin) return;
+  // Network-first: always load the latest code when online; fall back to the
+  // cached shell only when offline. (App data is online-only anyway.)
   e.respondWith(
-    caches.match(req).then((cached) =>
-      cached || fetch(req).then((res) => {
-        const copy = res.clone();
-        caches.open(CACHE).then((c) => c.put(req, copy)).catch(() => {});
-        return res;
-      }).catch(() => cached)
-    )
+    fetch(req).then((res) => {
+      const copy = res.clone();
+      caches.open(CACHE).then((c) => c.put(req, copy)).catch(() => {});
+      return res;
+    }).catch(() => caches.match(req))
   );
 });

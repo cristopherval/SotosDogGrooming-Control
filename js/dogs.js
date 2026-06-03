@@ -277,7 +277,8 @@ export function openDogForm(id) {
       });
 
       foot.querySelector('[data-act="cancel"]').onclick = closeModal;
-      foot.querySelector('[data-act="save"]').onclick = () => {
+      const saveBtn = foot.querySelector('[data-act="save"]');
+      saveBtn.onclick = async () => {
         const name = $('#dName', body).value.trim();
         if (!name) { toast(t('required_name')); return; }
         const dog = {
@@ -300,8 +301,13 @@ export function openDogForm(id) {
           photo: photos[0] || '', // first photo kept for card/avatar thumbnails
           vaccines: d ? (d.vaccines || {}) : {},
         };
-        store.upsertDog(dog);
-        closeModal(); renderDogs(); toast(t('saved'));
+        saveBtn.disabled = true;
+        try {
+          await store.upsertDog(dog); // uploads new photos, then writes to Supabase
+          closeModal(); renderDogs(); toast(t('saved'));
+        } catch (e) {
+          saveBtn.disabled = false; // store already toasted; let the user retry
+        }
       };
     },
   });
@@ -396,7 +402,8 @@ export function openDogProfile(id) {
     foot.querySelector('[data-act="edit"]').onclick = () => { closeModal(); openDogForm(id); };
     foot.querySelector('[data-act="delete"]').onclick = async () => {
       if (await confirmDialog(t('confirm_delete_dog'))) {
-        store.deleteDog(id); closeModal(); renderDogs(); toast(t('deleted'));
+        try { await store.deleteDog(id); closeModal(); renderDogs(); toast(t('deleted')); }
+        catch (e) { /* store toasted */ }
       }
     };
   }
@@ -452,8 +459,8 @@ function bindTimeline(body, dog, refresh) {
     openAppointmentForm(dog.id, refresh, b.getAttribute('data-edit-appt')));
   $$('[data-del-appt]', body).forEach((b) => b.onclick = async () => {
     if (await confirmDialog(t('confirm_delete_appt'))) {
-      store.deleteAppointment(b.getAttribute('data-del-appt'));
-      refresh();
+      try { await store.deleteAppointment(b.getAttribute('data-del-appt')); refresh(); }
+      catch (e) { /* store toasted */ }
     }
   });
 }

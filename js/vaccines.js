@@ -66,13 +66,17 @@ export function renderVaccineChecklist(dog, onChange) {
 /** Wire checkbox toggles inside a container for a given dog. */
 export function bindVaccineChecklist(container, dog, onChange) {
   $$('[data-vax]', container).forEach((cb) => {
-    cb.addEventListener('change', () => {
+    cb.addEventListener('change', async () => {
       const id = cb.getAttribute('data-vax');
       dog.vaccines = dog.vaccines || {};
       if (cb.checked) dog.vaccines[id] = { date: todayISO() };
       else delete dog.vaccines[id];
-      store.upsertDog(dog);
-      if (typeof onChange === 'function') onChange();
+      try {
+        await store.upsertDog(dog);
+        if (typeof onChange === 'function') onChange();
+      } catch (e) {
+        cb.checked = !cb.checked; // revert the toggle on failure (store toasted)
+      }
     });
   });
 }
@@ -99,8 +103,8 @@ export function renderCatalog() {
   $$('[data-del-vax]', wrap).forEach((b) =>
     b.onclick = async () => {
       if (await confirmDialog(t('confirm_delete_vax'))) {
-        store.deleteVaccine(b.getAttribute('data-del-vax'));
-        renderCatalog(); toast(t('deleted'));
+        try { await store.deleteVaccine(b.getAttribute('data-del-vax')); renderCatalog(); toast(t('deleted')); }
+        catch (e) { /* store toasted */ }
       }
     });
 }
@@ -123,12 +127,16 @@ export function openVaccineForm(id) {
       <button class="btn btn-primary" data-act="save">${escapeHtml(t('save'))}</button>`,
     onMount(body, foot) {
       foot.querySelector('[data-act="cancel"]').onclick = closeModal;
-      foot.querySelector('[data-act="save"]').onclick = () => {
+      const saveBtn = foot.querySelector('[data-act="save"]');
+      saveBtn.onclick = async () => {
         const name = $('#vxName').value.trim();
         const months = parseInt($('#vxMonths').value, 10) || 12;
         if (!name) { toast(t('required_name')); return; }
-        store.upsertVaccine({ id: editing ? editing.id : store.uid('vax'), name, months });
-        closeModal(); renderCatalog(); toast(t('saved'));
+        saveBtn.disabled = true;
+        try {
+          await store.upsertVaccine({ id: editing ? editing.id : store.uid('vax'), name, months });
+          closeModal(); renderCatalog(); toast(t('saved'));
+        } catch (e) { saveBtn.disabled = false; }
       };
     },
   });

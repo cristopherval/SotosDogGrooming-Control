@@ -71,6 +71,20 @@ export const STRINGS = {
     reminder_msg: 'Hi {owner}! 🐶 This is a reminder for {dog}\'s grooming appointment on {date} at Soto\'s Dog Grooming. See you soon!',
     birthday_month: 'Birthday this month', has_alert: 'Has an alert in notes',
     confirm_delete_appt: 'Delete this appointment?',
+
+    // auth + cloud
+    save_failed: 'Could not save — check your internet connection.',
+    load_failed: 'Could not load data — check your internet connection.',
+    sign_in: 'Sign in', sign_in_subtitle: 'Sign in to manage your shop',
+    email: 'Email', password: 'Password',
+    login_failed: 'Wrong email or password.',
+    signing_in: 'Signing in…',
+    account: 'Account', logout: 'Log out', confirm_logout: 'Log out of this account?',
+    cloud_label: 'Cloud (Supabase)', cloud_desc: 'Your data is stored securely online.',
+    migrate_title: 'Local data found', migrate_btn: 'Upload to cloud',
+    migrate_desc: 'This device still has data saved locally. Upload it to your Supabase account.',
+    migrating: 'Uploading… {n}/{total}', migrate_done: 'Local data uploaded to the cloud',
+    migrate_failed: 'Upload failed — check your connection and try again.',
   },
 
   es: {
@@ -135,6 +149,20 @@ export const STRINGS = {
     reminder_msg: '¡Hola {owner}! 🐶 Te recordamos la cita de aseo de {dog} el {date} en Soto\'s Dog Grooming. ¡Te esperamos!',
     birthday_month: 'Cumpleaños este mes', has_alert: 'Tiene una alerta en notas',
     confirm_delete_appt: '¿Eliminar esta cita?',
+
+    // auth + cloud
+    save_failed: 'No se pudo guardar — revisa tu conexión a internet.',
+    load_failed: 'No se pudieron cargar los datos — revisa tu conexión a internet.',
+    sign_in: 'Iniciar sesión', sign_in_subtitle: 'Inicia sesión para administrar tu negocio',
+    email: 'Correo', password: 'Contraseña',
+    login_failed: 'Correo o contraseña incorrectos.',
+    signing_in: 'Iniciando sesión…',
+    account: 'Cuenta', logout: 'Cerrar sesión', confirm_logout: '¿Cerrar sesión de esta cuenta?',
+    cloud_label: 'Nube (Supabase)', cloud_desc: 'Tus datos se guardan de forma segura en línea.',
+    migrate_title: 'Datos locales encontrados', migrate_btn: 'Subir a la nube',
+    migrate_desc: 'Este dispositivo aún tiene datos guardados localmente. Súbelos a tu cuenta de Supabase.',
+    migrating: 'Subiendo… {n}/{total}', migrate_done: 'Datos locales subidos a la nube',
+    migrate_failed: 'Falló la subida — revisa tu conexión e intenta de nuevo.',
   },
 };
 

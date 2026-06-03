@@ -30,9 +30,14 @@
           <small data-i18n="brand_subtitle">Dog Grooming</small>
         </div>
       </div>
-      <button id="themeToggle" class="btn btn-icon btn-theme" type="button" aria-label="Toggle theme">
-        <i class="ti ti-moon"></i>
-      </button>
+      <div class="app-header__actions">
+        <button id="themeToggle" class="btn btn-icon btn-theme" type="button" aria-label="Toggle theme">
+          <i class="ti ti-moon"></i>
+        </button>
+        <button class="btn btn-icon btn-theme" type="button" data-action="logout" aria-label="Log out" title="Log out">
+          <i class="ti ti-logout"></i>
+        </button>
+      </div>
     </div>
   </header>
 
@@ -142,16 +147,25 @@
         <h1 class="view-title" data-i18n="nav_settings">Settings &amp; Backup</h1>
       </div>
 
-      <!-- Storage usage -->
+      <!-- Cloud status -->
       <div class="card soft-card">
         <div class="card-body">
-          <div class="d-flex justify-content-between align-items-center mb-2">
-            <strong data-i18n="storage_used">Storage used</strong>
-            <span id="storageLabel" class="text-muted">0 KB</span>
+          <div class="d-flex justify-content-between align-items-center">
+            <strong data-i18n="cloud_label">Cloud (Supabase)</strong>
+            <i class="ti ti-cloud-check text-success" style="font-size:22px"></i>
           </div>
-          <div class="progress progress-lg">
-            <div id="storageBar" class="progress-bar bg-primary" style="width:0%"></div>
-          </div>
+          <p class="text-muted small mb-0 mt-1" data-i18n="cloud_desc">Your data is stored securely online.</p>
+        </div>
+      </div>
+
+      <!-- Migrate local data (only shown when an old local database exists) -->
+      <div id="migrateCard" class="card soft-card d-none">
+        <div class="card-body">
+          <strong data-i18n="migrate_title">Local data found</strong>
+          <p class="text-muted small mb-3 mt-1" data-i18n="migrate_desc">This device still has data saved locally. Upload it to your Supabase account.</p>
+          <button id="migrateBtn" class="btn btn-primary" data-action="migrate-local">
+            <i class="ti ti-cloud-upload"></i><span data-i18n="migrate_btn">Upload to cloud</span>
+          </button>
         </div>
       </div>
 
@@ -198,6 +212,21 @@
         </div>
       </div>
 
+      <!-- Account -->
+      <div class="card soft-card">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-center">
+            <div>
+              <strong data-i18n="account">Account</strong>
+              <p id="accountEmail" class="text-muted small mb-0 mt-1"></p>
+            </div>
+            <button class="btn btn-outline-danger" data-action="logout">
+              <i class="ti ti-logout"></i><span data-i18n="logout">Log out</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
       <p class="text-center text-muted small mt-3 mb-2">Soto's Dog Grooming · v1.0</p>
     </section>
   </main>
@@ -217,6 +246,29 @@
       <i class="ti ti-settings"></i><span data-i18n="nav_settings">Settings</span>
     </button>
   </nav>
+
+  <!-- ====================== LOGIN OVERLAY ====================== -->
+  <div id="loginOverlay" class="login-overlay">
+    <form id="loginForm" class="login-card" autocomplete="on">
+      <div class="login-brand">
+        <span class="app-brand__logo"><i class="ti ti-paw"></i></span>
+        <div class="login-brand__text">
+          <strong>Soto's Dog Grooming</strong>
+          <small data-i18n="sign_in_subtitle">Sign in to manage your shop</small>
+        </div>
+      </div>
+      <div class="field">
+        <label class="form-label" for="loginEmail" data-i18n="email">Email</label>
+        <input id="loginEmail" type="email" class="form-control" autocomplete="username" required />
+      </div>
+      <div class="field">
+        <label class="form-label" for="loginPassword" data-i18n="password">Password</label>
+        <input id="loginPassword" type="password" class="form-control" autocomplete="current-password" required />
+      </div>
+      <div id="loginError" class="login-error d-none"></div>
+      <button id="loginSubmit" type="submit" class="btn btn-primary w-100" data-i18n="sign_in">Sign in</button>
+    </form>
+  </div>
 
   <!-- ====================== MODAL ROOT ====================== -->
   <div id="modalRoot" class="modal-root d-none">

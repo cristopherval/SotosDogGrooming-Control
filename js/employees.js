@@ -38,8 +38,8 @@ export function renderEmployees() {
   $$('[data-edit]', list).forEach((b) => b.onclick = () => openEmployeeForm(b.getAttribute('data-edit')));
   $$('[data-del]', list).forEach((b) => b.onclick = async () => {
     if (await confirmDialog(t('confirm_delete_emp'))) {
-      store.deleteEmployee(b.getAttribute('data-del'));
-      renderEmployees(); toast(t('deleted'));
+      try { await store.deleteEmployee(b.getAttribute('data-del')); renderEmployees(); toast(t('deleted')); }
+      catch (e) { /* store toasted */ }
     }
   });
 }
@@ -82,18 +82,22 @@ export function openEmployeeForm(id) {
       <button class="btn btn-primary" data-act="save">${escapeHtml(t('save'))}</button>`,
     onMount(body, foot) {
       foot.querySelector('[data-act="cancel"]').onclick = closeModal;
-      foot.querySelector('[data-act="save"]').onclick = () => {
+      const saveBtn = foot.querySelector('[data-act="save"]');
+      saveBtn.onclick = async () => {
         const fullName = $('#eName').value.trim();
         if (!fullName) { toast(t('required_name')); return; }
-        store.upsertEmployee({
-          id: e ? e.id : store.uid('emp'),
-          fullName,
-          role: $('#eRole').value.trim(),
-          phone: $('#ePhone').value.trim(),
-          active: $('#eActive').checked,
-          notes: $('#eNotes').value.trim(),
-        });
-        closeModal(); renderEmployees(); toast(t('saved'));
+        saveBtn.disabled = true;
+        try {
+          await store.upsertEmployee({
+            id: e ? e.id : store.uid('emp'),
+            fullName,
+            role: $('#eRole').value.trim(),
+            phone: $('#ePhone').value.trim(),
+            active: $('#eActive').checked,
+            notes: $('#eNotes').value.trim(),
+          });
+          closeModal(); renderEmployees(); toast(t('saved'));
+        } catch (err) { saveBtn.disabled = false; }
       };
     },
   });

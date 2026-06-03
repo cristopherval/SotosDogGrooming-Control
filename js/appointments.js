@@ -86,24 +86,28 @@ export function openAppointmentForm(dogId, onSaved, apptId) {
       }));
 
       foot.querySelector('[data-act="cancel"]').onclick = closeModal;
-      foot.querySelector('[data-act="save"]').onclick = () => {
+      const saveBtn = foot.querySelector('[data-act="save"]');
+      saveBtn.onclick = async () => {
         const date = $('#aDate', body).value || todayISO();
         const time = $('#aTime', body).value || '';
         const employeeId = $('#aEmp', body).value || '';
         const services = { full: full.checked };
         items.forEach((cb) => { services[cb.getAttribute('data-svc')] = cb.checked; });
 
-        store.upsertAppointment({
-          id: appt ? appt.id : store.uid('appt'),
-          dogId: appt ? appt.dogId : dogId,
-          date,
-          time,
-          employeeId,
-          services,
-          createdAt: appt ? (appt.createdAt || todayISO()) : todayISO(),
-        });
-        closeModal(); toast(t('saved'));
-        if (typeof onSaved === 'function') onSaved();
+        saveBtn.disabled = true;
+        try {
+          await store.upsertAppointment({
+            id: appt ? appt.id : store.uid('appt'),
+            dogId: appt ? appt.dogId : dogId,
+            date,
+            time,
+            employeeId,
+            services,
+            createdAt: appt ? (appt.createdAt || todayISO()) : todayISO(),
+          });
+          closeModal(); toast(t('saved'));
+          if (typeof onSaved === 'function') onSaved();
+        } catch (e) { saveBtn.disabled = false; }
       };
     },
   });
