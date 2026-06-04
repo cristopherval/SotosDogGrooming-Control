@@ -71,6 +71,39 @@ function toggleTheme() {
   applyTheme(next);
 }
 
+// ---------------- Refresh button (Home) ----------------
+// Re-fetch the latest data from Supabase and re-render, without a full reload.
+async function refreshData() {
+  const btn = $('#refreshBtn');
+  if (btn) btn.classList.add('is-spinning');
+  try {
+    await store.init();
+    showView(currentView);
+    toast(t('refreshed'));
+  } catch (e) {
+    console.error(e);
+    toast(t('load_failed'));
+  } finally {
+    if (btn) btn.classList.remove('is-spinning');
+  }
+}
+// Full page reload — also pulls the newest app version after a deploy. Session persists.
+function fullReload() { location.reload(); }
+
+function wireRefresh() {
+  const btn = $('#refreshBtn');
+  if (!btn) return;
+  let holdTimer = null;
+  let held = false;
+  const start = () => { held = false; holdTimer = setTimeout(() => { held = true; fullReload(); }, 600); };
+  const cancel = () => { clearTimeout(holdTimer); };
+  btn.addEventListener('pointerdown', start);
+  btn.addEventListener('pointerup', () => { cancel(); if (!held) refreshData(); });
+  btn.addEventListener('pointerleave', cancel);
+  btn.addEventListener('pointercancel', cancel);
+  btn.addEventListener('contextmenu', (e) => e.preventDefault()); // avoid long-press menu
+}
+
 // ---------------- Global event wiring ----------------
 function wireEvents() {
   // bottom nav
@@ -78,6 +111,9 @@ function wireEvents() {
 
   // theme
   $('#themeToggle').onclick = toggleTheme;
+
+  // home refresh button (tap = refresh data, hold = full reload)
+  wireRefresh();
 
   // modal: close button only (backdrop click intentionally does NOT close)
   document.addEventListener('click', (e) => {

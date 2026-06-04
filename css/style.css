@@ -88,7 +88,15 @@ input, select, textarea, .form-control, .form-select { font-size: 16px !importan
   margin-bottom: 14px;
 }
 .view-title { font-size: 22px; font-weight: 700; margin: 0; }
+.view-head__actions { display: flex; align-items: center; gap: 8px; }
 .btn-add { border-radius: 12px; font-weight: 600; }
+.btn-refresh {
+  background: var(--surface-2); border: none; color: var(--brand);
+  border-radius: 12px; width: 40px; height: 40px;
+  display: grid; place-items: center; font-size: 20px; touch-action: none;
+}
+.btn-refresh.is-spinning i { animation: spin .8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
 
 .soft-card {
   background: var(--surface); border: 1px solid var(--border);

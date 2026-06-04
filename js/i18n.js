@@ -75,6 +75,7 @@ export const STRINGS = {
     // auth + cloud
     save_failed: 'Could not save — check your internet connection.',
     load_failed: 'Could not load data — check your internet connection.',
+    refreshed: 'Updated',
     sign_in: 'Sign in', sign_in_subtitle: 'Sign in to manage your shop',
     email: 'Email', password: 'Password',
     login_failed: 'Wrong email or password.',
@@ -153,6 +154,7 @@ export const STRINGS = {
     // auth + cloud
     save_failed: 'No se pudo guardar — revisa tu conexión a internet.',
     load_failed: 'No se pudieron cargar los datos — revisa tu conexión a internet.',
+    refreshed: 'Actualizado',
     sign_in: 'Iniciar sesión', sign_in_subtitle: 'Inicia sesión para administrar tu negocio',
     email: 'Correo', password: 'Contraseña',
     login_failed: 'Correo o contraseña incorrectos.',

@@ -48,9 +48,14 @@
     <section class="view" data-view="dogs">
       <div class="view-head">
         <h1 class="view-title" data-i18n="nav_dogs">Dogs</h1>
-        <button class="btn btn-primary btn-add" data-action="add-dog">
-          <i class="ti ti-plus"></i><span data-i18n="add_dog">Add Dog</span>
-        </button>
+        <div class="view-head__actions">
+          <button id="refreshBtn" class="btn btn-icon btn-refresh" type="button" aria-label="Refresh">
+            <i class="ti ti-refresh"></i>
+          </button>
+          <button class="btn btn-primary btn-add" data-action="add-dog">
+            <i class="ti ti-plus"></i><span data-i18n="add_dog">Add Dog</span>
+          </button>
+        </div>
       </div>
 
       <!-- Search + filters -->
