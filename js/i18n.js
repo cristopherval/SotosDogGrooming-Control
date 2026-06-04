@@ -18,8 +18,8 @@ export const STRINGS = {
 
     // dog form
     dog_new: 'New Dog', dog_edit: 'Edit Dog',
-    photo_hint: 'Tap to add photos (camera or gallery)',
-    add_photos: 'Add photos',
+    photo_hint: 'Add photos from the camera or the gallery',
+    add_photos: 'Add photos', take_photo: 'Camera', choose_gallery: 'Gallery',
     photo_error: 'Some photos could not be added (unsupported format).',
     name: 'Name', breed: 'Breed', color: 'Color', sex: 'Sex', birthday: 'Birthday',
     owner_info: 'Owner', owner_first: 'Owner First Name', owner_last: 'Owner Last Name',
@@ -102,8 +102,8 @@ export const STRINGS = {
     upcoming_title: 'Próximas citas',
 
     dog_new: 'Nuevo Perro', dog_edit: 'Editar Perro',
-    photo_hint: 'Toca para agregar fotos (cámara o galería)',
-    add_photos: 'Agregar fotos',
+    photo_hint: 'Agrega fotos desde la cámara o la galería',
+    add_photos: 'Agregar fotos', take_photo: 'Cámara', choose_gallery: 'Galería',
     photo_error: 'No se pudieron agregar algunas fotos (formato no soportado).',
     name: 'Nombre', breed: 'Raza', color: 'Color', sex: 'Sexo', birthday: 'Cumpleaños',
     owner_info: 'Dueño', owner_first: 'Nombre del Dueño', owner_last: 'Apellido del Dueño',

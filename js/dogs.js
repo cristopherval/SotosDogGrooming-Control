@@ -182,10 +182,16 @@ export function openDogForm(id) {
     title: d ? t('dog_edit') : t('dog_new'),
     bodyHTML: `
       <div class="photo-gallery" id="photoGallery"></div>
-      <label class="photo-add-btn" id="photoPick">
-        <i class="ti ti-camera"></i><span>${escapeHtml(t('add_photos'))}</span>
-        <input type="file" id="dogPhoto" accept="image/*" multiple />
-      </label>
+      <div class="photo-add-row">
+        <label class="photo-add-btn">
+          <i class="ti ti-camera"></i><span>${escapeHtml(t('take_photo'))}</span>
+          <input type="file" id="dogPhotoCam" accept="image/*" capture="environment" />
+        </label>
+        <label class="photo-add-btn">
+          <i class="ti ti-photo"></i><span>${escapeHtml(t('choose_gallery'))}</span>
+          <input type="file" id="dogPhotoGal" accept="image/*" multiple />
+        </label>
+      </div>
       <div class="photo-hint">${escapeHtml(t('photo_hint'))}</div>
 
       <div class="field">
@@ -257,9 +263,9 @@ export function openDogForm(id) {
       }
       renderGallery();
 
-      const fileInput = $('#dogPhoto', body);
-      fileInput.addEventListener('change', async () => {
-        const files = [...fileInput.files];
+      // Shared handler for both the camera and the gallery inputs.
+      async function addFiles(input) {
+        const files = [...input.files];
         if (!files.length) return;
         let failed = 0;
         for (const file of files) {
@@ -271,10 +277,14 @@ export function openDogForm(id) {
             failed++;
           }
         }
-        fileInput.value = ''; // allow re-selecting the same file later
+        input.value = ''; // allow re-selecting the same file later
         renderGallery();
         if (failed) toast(t('photo_error'));
-      });
+      }
+      const camInput = $('#dogPhotoCam', body);
+      const galInput = $('#dogPhotoGal', body);
+      camInput.addEventListener('change', () => addFiles(camInput));
+      galInput.addEventListener('change', () => addFiles(galInput));
 
       foot.querySelector('[data-act="cancel"]').onclick = closeModal;
       const saveBtn = foot.querySelector('[data-act="save"]');

@@ -45,12 +45,16 @@ function renderUpcoming() {
           <div class="upcoming-item__name">${escapeHtml(dog.name)}</div>
           <div class="upcoming-item__date"><i class="ti ti-calendar"></i> ${fmtDate(a.date)} · ${escapeHtml(serviceLabels(a).join(', ') || '—')}</div>
         </div>
-        ${dog.phone ? `<button class="btn btn-sm btn-wa" data-up-remind="${escapeHtml(a.id)}"><i class="ti ti-brand-whatsapp"></i> ${escapeHtml(t('remind'))}</button>` : ''}
+        ${dog.phone ? `
+        <div class="upcoming-item__actions">
+          <button class="btn btn-sm btn-wa" data-up-remind="wa" data-id="${escapeHtml(a.id)}"><i class="ti ti-brand-whatsapp"></i></button>
+          <button class="btn btn-sm btn-sms" data-up-remind="sms" data-id="${escapeHtml(a.id)}"><i class="ti ti-message"></i></button>
+        </div>` : ''}
       </div>`;
   }).join('');
   $$('[data-up-remind]', list).forEach((b) => b.onclick = () => {
-    const appt = store.data.appointments.find((a) => a.id === b.getAttribute('data-up-remind'));
-    if (appt) sendReminder(appt);
+    const appt = store.data.appointments.find((a) => a.id === b.getAttribute('data-id'));
+    if (appt) sendReminder(appt, b.getAttribute('data-up-remind'));
   });
 }
 

@@ -190,36 +190,73 @@ function loadHeicConverter() {
   return heicLibPromise;
 }
 
+/** Convert a HEIC/HEIF blob to a JPEG blob using the local converter. */
+async function heicToJpeg(file) {
+  const heic2any = await loadHeicConverter();
+  const out = await heic2any({ blob: file, toType: 'image/jpeg', quality: 0.9 });
+  return Array.isArray(out) ? out[0] : out;
+}
+
+/**
+ * Decode an image blob to something drawable on a canvas.
+ * Prefers createImageBitmap: it is far more memory-efficient for big phone-camera
+ * photos and applies EXIF orientation, so portrait shots aren't sideways. Falls
+ * back to an <img> element where createImageBitmap isn't available.
+ */
+async function decodeImage(blob) {
+  if (typeof createImageBitmap === 'function') {
+    try { return await createImageBitmap(blob, { imageOrientation: 'from-image' }); }
+    catch (e) { try { return await createImageBitmap(blob); } catch (e2) { /* fall through */ } }
+  }
+  const url = URL.createObjectURL(blob);
+  try { return await loadImage(url); }
+  finally { URL.revokeObjectURL(url); }
+}
+
 /**
  * Read an <input type=file> image, downscale it and return a base64 data-URL (jpeg).
- * Handles HEIC/HEIF photos (common on Android/iPhone cameras) by converting them
- * first. Rejects with a clear error instead of silently failing.
+ *
+ * Robust against the two real-world failures seen on Samsung/Android:
+ *  - HEIC/HEIF camera photos the browser can't decode (even when the file type
+ *    is mis-reported) — we try a normal decode first and, if it fails, convert
+ *    from HEIC and retry.
+ *  - Very large (12–50MP) camera photos — createImageBitmap handles these far
+ *    better than an <img> element.
+ * Throws with a clear error instead of failing silently.
  */
+async function decodeMaybeConvert(file, convertFirst) {
+  return decodeImage(convertFirst ? await heicToJpeg(file) : file);
+}
+
 export async function readImageResized(file, maxSize = 1280, quality = 0.82) {
   if (!file) return null;
 
-  let blob = file;
-  const isHeic = /hei[cf]/i.test(file.type || '') || /\.(heic|heif)$/i.test(file.name || '');
-  if (isHeic) {
-    // Browsers can't decode HEIC in <img>; convert to JPEG first.
-    const heic2any = await loadHeicConverter();
-    const out = await heic2any({ blob: file, toType: 'image/jpeg', quality: 0.9 });
-    blob = Array.isArray(out) ? out[0] : out;
+  // Guess HEIC from the type/extension, but don't trust it: Samsung often
+  // mis-reports camera files. Try the likely path, then the opposite.
+  const looksHeic = /hei[cf]/i.test(file.type || '') || /\.(heic|heif)$/i.test(file.name || '');
+  let source;
+  try {
+    source = await decodeMaybeConvert(file, looksHeic);
+  } catch (e1) {
+    try {
+      source = await decodeMaybeConvert(file, !looksHeic);
+    } catch (e2) {
+      console.warn('Image decode failed (both strategies)', e1, e2);
+      throw e1;
+    }
   }
 
-  const url = URL.createObjectURL(blob);
-  try {
-    const img = await loadImage(url);
-    let { width, height } = img;
-    if (width > height && width > maxSize) { height = Math.round(height * maxSize / width); width = maxSize; }
-    else if (height > maxSize) { width = Math.round(width * maxSize / height); height = maxSize; }
-    const canvas = document.createElement('canvas');
-    canvas.width = width || img.width; canvas.height = height || img.height;
-    canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
-    return canvas.toDataURL('image/jpeg', quality);
-  } finally {
-    URL.revokeObjectURL(url);
-  }
+  let width = source.width;
+  let height = source.height;
+  if (width > height && width > maxSize) { height = Math.round(height * maxSize / width); width = maxSize; }
+  else if (height > maxSize) { width = Math.round(width * maxSize / height); height = maxSize; }
+
+  const canvas = document.createElement('canvas');
+  canvas.width = width || source.width;
+  canvas.height = height || source.height;
+  canvas.getContext('2d').drawImage(source, 0, 0, canvas.width, canvas.height);
+  if (typeof source.close === 'function') source.close(); // free ImageBitmap memory
+  return canvas.toDataURL('image/jpeg', quality);
 }
 
 /** Build a <select> options string with a default placeholder. */
