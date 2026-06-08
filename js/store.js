@@ -48,16 +48,37 @@ function saveSettings(settings) {
 // ---------------- Row <-> object mapping (snake_case <-> camelCase) ----------------
 const nz = (v) => (v === '' || v === undefined ? null : v); // '' -> null for the DB
 
+// Photos are grouped in three sections. Legacy rows stored a flat array — we
+// migrate those into the "before" section on read.
+export const PHOTO_CATS = ['before', 'after', 'details'];
+export function normalizePhotos(raw) {
+  if (Array.isArray(raw)) return { before: raw.slice(), after: [], details: [] };
+  if (raw && typeof raw === 'object') {
+    return {
+      before: Array.isArray(raw.before) ? raw.before : [],
+      after: Array.isArray(raw.after) ? raw.after : [],
+      details: Array.isArray(raw.details) ? raw.details : [],
+    };
+  }
+  return { before: [], after: [], details: [] };
+}
+/** First available photo across all sections (used for card/avatar thumbnails). */
+export function firstPhoto(photos) {
+  const p = normalizePhotos(photos);
+  for (const c of PHOTO_CATS) { if (p[c][0]) return p[c][0]; }
+  return '';
+}
+
 function rowToDog(r) {
-  const photos = Array.isArray(r.photos) ? r.photos : [];
+  const photos = normalizePhotos(r.photos);
   return {
     id: r.id, name: r.name || '', breed: r.breed || '', color: r.color || '',
     sex: r.sex || '', birthday: r.birthday || '',
     ownerFirst: r.owner_first || '', ownerLast: r.owner_last || '', phone: r.phone || '',
-    employeeId: r.employee_id || '',
+    employeeId: r.employee_id || '', price: r.price || '',
     bladeHead: r.blade_head || '', bladeBody: r.blade_body || '',
     combHead: r.comb_head || '', combBody: r.comb_body || '',
-    notes: r.notes || '', photos, photo: photos[0] || '',
+    notes: r.notes || '', photos, photo: firstPhoto(photos),
     vaccines: r.vaccines || {},
   };
 }
@@ -65,10 +86,10 @@ function dogToRow(d) {
   return {
     id: d.id, name: d.name, breed: nz(d.breed), color: nz(d.color), sex: nz(d.sex),
     birthday: nz(d.birthday), owner_first: nz(d.ownerFirst), owner_last: nz(d.ownerLast),
-    phone: nz(d.phone), employee_id: nz(d.employeeId),
+    phone: nz(d.phone), employee_id: nz(d.employeeId), price: nz(d.price),
     blade_head: nz(d.bladeHead), blade_body: nz(d.bladeBody),
     comb_head: nz(d.combHead), comb_body: nz(d.combBody),
-    notes: nz(d.notes), photos: d.photos || [], vaccines: d.vaccines || {},
+    notes: nz(d.notes), photos: normalizePhotos(d.photos), vaccines: d.vaccines || {},
   };
 }
 
@@ -132,15 +153,14 @@ export const store = {
     return `${prefix}_${Date.now().toString(36)}_${Math.floor(Math.random() * 1e6).toString(36)}`;
   },
 
-  // Upload any base64 (data:) photos to Storage, replacing them with public URLs.
-  async _uploadNewPhotos(dog) {
-    const photos = Array.isArray(dog.photos) ? dog.photos : [];
+  // Upload one array of (possibly base64) photos, returning https URLs.
+  async _uploadPhotoArray(dogId, arr) {
     const out = [];
-    for (const p of photos) {
+    for (const p of (arr || [])) {
       if (typeof p !== 'string') continue;
       if (p.startsWith('data:')) {
         const blob = await (await fetch(p)).blob();
-        const path = `${dog.id}/${crypto.randomUUID()}.jpg`;
+        const path = `${dogId}/${crypto.randomUUID()}.jpg`;
         const up = await sb.storage.from(BUCKET).upload(path, blob, { contentType: 'image/jpeg', upsert: false });
         if (up.error) throw up.error;
         out.push(sb.storage.from(BUCKET).getPublicUrl(path).data.publicUrl);
@@ -148,14 +168,23 @@ export const store = {
         out.push(p); // already an https URL
       }
     }
-    dog.photos = out;
+    return out;
+  },
+
+  // Upload any base64 photos across all three sections, replacing them with URLs.
+  async _uploadNewPhotos(dog) {
+    const photos = normalizePhotos(dog.photos);
+    for (const c of PHOTO_CATS) {
+      photos[c] = await this._uploadPhotoArray(dog.id, photos[c]);
+    }
+    dog.photos = photos;
   },
 
   // ---- dogs ----
   getDog(id) { return this.data.dogs.find((d) => d.id === id); },
   async upsertDog(dog) {
     await this._uploadNewPhotos(dog);
-    dog.photo = (dog.photos && dog.photos[0]) || '';
+    dog.photo = firstPhoto(dog.photos);
     const i = this.data.dogs.findIndex((d) => d.id === dog.id);
     if (i >= 0) this.data.dogs[i] = dog; else this.data.dogs.push(dog);
     const { error } = await sb.from('dogs').upsert(dogToRow(dog));
@@ -248,7 +277,11 @@ export const store = {
     let n = 0;
     for (const d of dogs) {
       const dog = { ...d };
-      if (!Array.isArray(dog.photos)) dog.photos = dog.photo ? [dog.photo] : [];
+      // Legacy local dogs stored a flat array (or single `photo`); fold into "before".
+      dog.photos = normalizePhotos(dog.photos);
+      if (!dog.photos.before.length && !dog.photos.after.length && !dog.photos.details.length && d.photo) {
+        dog.photos.before = [d.photo];
+      }
       await this._uploadNewPhotos(dog);
       const { error } = await sb.from('dogs').upsert(dogToRow(dog));
       if (error) throw error;
@@ -288,7 +321,10 @@ export const store = {
       dogs: this.data.dogs.length,
       employees: this.data.employees.length,
       appointments: this.data.appointments.length,
-      photos: this.data.dogs.reduce((n, d) => n + (Array.isArray(d.photos) ? d.photos.length : 0), 0),
+      photos: this.data.dogs.reduce((n, d) => {
+        const p = normalizePhotos(d.photos);
+        return n + p.before.length + p.after.length + p.details.length;
+      }, 0),
     };
   },
 };

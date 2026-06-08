@@ -47,8 +47,8 @@ create table dogs (
   owner_first text, owner_last text, phone text,
   employee_id text references employees(id) on delete set null,
   blade_head text, blade_body text, comb_head text, comb_body text,
-  notes text,
-  photos jsonb default '[]'::jsonb,
+  notes text, price text,
+  photos jsonb default '{}'::jsonb,
   vaccines jsonb default '{}'::jsonb
 );
 
@@ -82,6 +82,13 @@ create policy "auth full access" on employees       for all to authenticated usi
 create policy "auth full access" on appointments    for all to authenticated using (true) with check (true);
 create policy "auth full access" on vaccine_catalog for all to authenticated using (true) with check (true);
 ```
+
+> **Already created the tables in an earlier version?** Don't re-run the block
+> above. Instead, just add the new **price** column (the three-section photos
+> need no change — they reuse the existing `photos` column):
+> ```sql
+> alter table dogs add column if not exists price text;
+> ```
 
 ## 4. Create the photo storage bucket
 

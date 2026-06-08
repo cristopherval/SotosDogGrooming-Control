@@ -1,5 +1,5 @@
 // dogs.js — home list, smart search, advanced filters, dog form, profile, timeline, badges
-import { store } from './store.js';
+import { store, normalizePhotos, firstPhoto } from './store.js';
 import { t, getLang } from './i18n.js';
 import {
   $, $$, openModal, closeModal, confirmDialog, toast, escapeHtml, initials,
@@ -14,6 +14,13 @@ import { openAppointmentForm, serviceLabels, sendReminder } from './appointments
 const filters = { search: '', breed: '', color: '', sex: '', status: '' };
 
 const SEX_OPTIONS = [{ value: 'Male', label: 'male' }, { value: 'Female', label: 'female' }];
+
+// Photo sections: arrival ("before"), results ("after"), and detail shots.
+const PHOTO_SECTIONS = [
+  { key: 'before', label: 'photos_before' },
+  { key: 'after', label: 'photos_after' },
+  { key: 'details', label: 'photos_details' },
+];
 
 const BLADE_NUMBERS = ['#3', '#3½', '#4', '#5', '#7', '#9', '#10', '#15', '#30', '#40'];
 
@@ -170,8 +177,8 @@ export function clearFilters() {
 // ---------------- Dog form (create / edit) ----------------
 export function openDogForm(id) {
   const d = id ? store.getDog(id) : null;
-  // photos: array of data-URLs. Migrate legacy single `photo` field.
-  let photos = d ? (Array.isArray(d.photos) ? [...d.photos] : (d.photo ? [d.photo] : [])) : [];
+  // photos grouped in three sections; legacy flat arrays fold into "before".
+  const photos = normalizePhotos(d ? d.photos : null);
 
   const sexOpts = optionsFrom(SEX_OPTIONS.map((o) => ({ value: o.value, label: t(o.label) })), d ? d.sex : '', t('select'));
 
@@ -181,6 +188,12 @@ export function openDogForm(id) {
   openModal({
     title: d ? t('dog_edit') : t('dog_new'),
     bodyHTML: `
+      <div class="field">
+        <label class="form-label">${escapeHtml(t('photos'))}</label>
+        <select id="photoCat" class="form-select">
+          ${PHOTO_SECTIONS.map((s) => `<option value="${s.key}">${escapeHtml(t(s.label))}</option>`).join('')}
+        </select>
+      </div>
       <div class="photo-gallery" id="photoGallery"></div>
       <div class="photo-add-row">
         <label class="photo-add-btn">
@@ -192,7 +205,6 @@ export function openDogForm(id) {
           <input type="file" id="dogPhotoGal" accept="image/*" multiple />
         </label>
       </div>
-      <div class="photo-hint">${escapeHtml(t('photo_hint'))}</div>
 
       <div class="field">
         <label class="form-label">${escapeHtml(t('name'))}</label>
@@ -240,38 +252,47 @@ export function openDogForm(id) {
           <select id="dCombB" class="form-select">${combOptions(d ? (d.combBody || '') : '')}</select></div>
       </div>
 
+      <div class="field"><label class="form-label">${escapeHtml(t('price'))}</label>
+        <input id="dPrice" class="form-control" inputmode="decimal" placeholder="$" value="${d ? escapeHtml(d.price || '') : ''}" /></div>
+
       <div class="field"><label class="form-label">${escapeHtml(t('notes'))}</label>
         <textarea id="dNotes" class="form-control" rows="2">${d ? escapeHtml(d.notes || '') : ''}</textarea></div>`,
     footHTML: `
       <button class="btn btn-outline-secondary" data-act="cancel">${escapeHtml(t('cancel'))}</button>
       <button class="btn btn-primary" data-act="save">${escapeHtml(t('save'))}</button>`,
     onMount(body, foot) {
+      const catSelect = $('#photoCat', body);
       const gallery = $('#photoGallery', body);
+      const currentCat = () => catSelect.value;
 
-      // Render the thumbnails grid; re-bind remove buttons each time.
+      // Render the thumbnails for the currently selected section only.
       function renderGallery() {
-        gallery.classList.toggle('d-none', photos.length === 0);
-        gallery.innerHTML = photos.map((src, i) => `
+        const cat = currentCat();
+        const arr = photos[cat];
+        gallery.classList.toggle('d-none', arr.length === 0);
+        gallery.innerHTML = arr.map((src, i) => `
           <div class="photo-thumb">
             <img src="${src}" alt=""/>
             <button type="button" class="photo-thumb__del" data-rm="${i}" aria-label="Remove"><i class="ti ti-x"></i></button>
           </div>`).join('');
         $$('[data-rm]', gallery).forEach((b) => b.onclick = () => {
-          photos.splice(Number(b.getAttribute('data-rm')), 1);
+          arr.splice(Number(b.getAttribute('data-rm')), 1);
           renderGallery();
         });
       }
+      catSelect.addEventListener('change', renderGallery);
       renderGallery();
 
-      // Shared handler for both the camera and the gallery inputs.
+      // Read + resize selected files into the currently selected section.
       async function addFiles(input) {
+        const cat = currentCat();
         const files = [...input.files];
         if (!files.length) return;
         let failed = 0;
         for (const file of files) {
           try {
             const data = await readImageResized(file);
-            if (data) photos.push(data);
+            if (data) photos[cat].push(data);
           } catch (err) {
             console.warn('Photo could not be processed', file.name, err);
             failed++;
@@ -306,9 +327,10 @@ export function openDogForm(id) {
           bladeBody: $('#dBladeB', body).value.trim(),
           combHead: $('#dCombH', body).value.trim(),
           combBody: $('#dCombB', body).value.trim(),
+          price: $('#dPrice', body).value.trim(),
           notes: $('#dNotes', body).value.trim(),
           photos,
-          photo: photos[0] || '', // first photo kept for card/avatar thumbnails
+          photo: firstPhoto(photos), // representative thumbnail for card/avatar
           vaccines: d ? (d.vaccines || {}) : {},
         };
         saveBtn.disabled = true;
@@ -333,15 +355,27 @@ export function openDogProfile(id) {
 
   const infoBox = (lbl, val) => `<div class="info-box"><div class="info-box__lbl">${escapeHtml(lbl)}</div><div class="info-box__val">${escapeHtml(val || '—')}</div></div>`;
 
-  // all photos (migrate legacy single-photo records)
-  const photos = Array.isArray(dog.photos) ? dog.photos : (dog.photo ? [dog.photo] : []);
+  // photos grouped in three sections (legacy flat arrays fold into "before")
+  const photos = normalizePhotos(dog.photos);
+  const hero = firstPhoto(photos);
   const groomer = dog.employeeId ? store.getEmployee(dog.employeeId) : null;
+
+  // A labeled gallery for one section, or '' when it has no photos.
+  const photoSection = (key, label) => {
+    const arr = photos[key];
+    if (!arr.length) return '';
+    return `
+      <div class="section-title section-title--sm">${escapeHtml(label)}</div>
+      <div class="photo-gallery profile-gallery">
+        ${arr.map((src) => `<div class="photo-thumb"><img src="${src}" alt="" data-zoom/></div>`).join('')}
+      </div>`;
+  };
 
   function bodyHTML() {
     return `
       <div class="profile-hero">
         <div class="profile-hero__avatar">
-          ${photos[0] ? `<img src="${photos[0]}" alt="" data-zoom/>` : `<i class="ti ti-dog"></i>`}
+          ${hero ? `<img src="${hero}" alt="" data-zoom/>` : `<i class="ti ti-dog"></i>`}
         </div>
         <div class="profile-hero__name">${escapeHtml(dog.name)}</div>
         <div class="profile-hero__sub">${escapeHtml([dog.breed, dog.color, dog.sex && t(dog.sex.toLowerCase())].filter(Boolean).join(' · ') || '—')}</div>
@@ -350,20 +384,18 @@ export function openDogProfile(id) {
         </div>
       </div>
 
-      ${photos.length > 1 ? `
-      <div class="photo-gallery profile-gallery">
-        ${photos.map((src) => `<div class="photo-thumb"><img src="${src}" alt="" data-zoom/></div>`).join('')}
-      </div>` : ''}
-
       <div class="info-grid">
         ${infoBox(t('owner'), owner)}
         ${infoBox(t('birthday'), dog.birthday ? fmtDate(dog.birthday) : '')}
         ${infoBox(t('attended_by'), groomer ? groomer.fullName : '')}
+        ${infoBox(t('price'), dog.price)}
         ${infoBox(t('blade_head'), dog.bladeHead)}
         ${infoBox(t('blade_body'), dog.bladeBody)}
         ${infoBox(t('comb_head'), dog.combHead ? combLabel(dog.combHead) : '')}
         ${infoBox(t('comb_body'), dog.combBody ? combLabel(dog.combBody) : '')}
       </div>
+
+      ${PHOTO_SECTIONS.map((s) => photoSection(s.key, t(s.label))).join('')}
 
       ${dog.phone ? `
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:6px">

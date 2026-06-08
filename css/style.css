@@ -291,6 +291,8 @@ input, select, textarea, .form-control, .form-select { font-size: 16px !importan
 .form-control, .form-select, .form-textarea {
   border-radius: 12px; border-color: var(--border); background: var(--surface-2); color: var(--text);
 }
+/* keep the native dropdown option list on-theme (esp. dark mode on Android/Chrome) */
+.form-select option { background-color: var(--surface); color: var(--text); }
 .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .field { margin-bottom: 14px; }
 
@@ -427,6 +429,9 @@ input, select, textarea, .form-control, .form-select { font-size: 16px !importan
 .info-box__lbl { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .03em; }
 .info-box__val { font-weight: 600; font-size: 14px; }
 .section-title { font-weight: 700; font-size: 15px; margin: 18px 0 10px; display: flex; align-items: center; gap: 8px; }
+.section-title--sm { font-size: 13px; margin: 12px 0 8px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .03em; }
+.photo-section { margin-bottom: 14px; }
+.photo-section > .form-label { display: block; margin-bottom: 6px; }
 
 /* vaccine rows */
 .vax-row {
