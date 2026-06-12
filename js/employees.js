@@ -28,7 +28,7 @@ export function renderEmployees() {
       </div>
       ${e.notes ? `<p class="text-muted small mt-2 mb-0">${escapeHtml(e.notes)}</p>` : ''}
       <div class="emp-card__actions">
-        ${e.phone ? `<a class="btn btn-sm btn-wa" href="${waLink(e.phone)}" target="_blank" rel="noopener"><i class="ti ti-brand-whatsapp"></i></a>
+        ${e.phone ? `<a class="btn btn-sm btn-wa" href="${waLink(e.phone)}" target="_blank" rel="noopener noreferrer"><i class="ti ti-brand-whatsapp"></i></a>
         <a class="btn btn-sm btn-outline-secondary" href="${telLink(e.phone)}"><i class="ti ti-phone"></i></a>` : ''}
         <button class="btn btn-sm btn-outline-primary" data-edit="${escapeHtml(e.id)}" style="margin-left:auto"><i class="ti ti-pencil"></i> ${escapeHtml(t('edit'))}</button>
         <button class="btn btn-sm btn-icon text-danger" data-del="${escapeHtml(e.id)}"><i class="ti ti-trash"></i></button>

@@ -399,7 +399,7 @@ export function openDogProfile(id) {
 
       ${dog.phone ? `
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:6px">
-        <a class="btn btn-wa" href="${waLink(dog.phone)}" target="_blank" rel="noopener"><i class="ti ti-brand-whatsapp"></i> ${escapeHtml(t('whatsapp'))}</a>
+        <a class="btn btn-wa" href="${waLink(dog.phone)}" target="_blank" rel="noopener noreferrer"><i class="ti ti-brand-whatsapp"></i> ${escapeHtml(t('whatsapp'))}</a>
         <a class="btn btn-sms" href="${smsLink(dog.phone)}"><i class="ti ti-message"></i> ${escapeHtml(t('sms'))}</a>
         <a class="btn btn-outline-secondary" href="${telLink(dog.phone)}"><i class="ti ti-phone"></i> ${escapeHtml(t('call'))}</a>
       </div>` : ''}

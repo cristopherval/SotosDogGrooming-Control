@@ -162,19 +162,44 @@ export function confirmDialog(message, opts = {}) {
 }
 
 // ---------------- Photo handling ----------------
+//
+// Goal: ANY photo the user picks must end up uploaded — no silent failures.
+// The hard cases on Android (Samsung) are (a) very large camera photos
+// (12–50MP) and (b) HEIC/HEIF. The pipeline below is defensive at every step
+// and, as a last resort, uploads the original file unchanged rather than losing
+// the photo.
 
-/** Load an image from a URL, rejecting on error or after a timeout (never hangs). */
-function loadImage(src, timeout = 20000) {
+const DISPLAYABLE_TYPE = /^image\/(jpe?g|png|webp|gif)$/i; // browsers render these directly
+const HEIC_HINT = (file) => /hei[cf]/i.test(file.type || '') || /\.(heic|heif)$/i.test(file.name || '');
+
+/**
+ * Decode a blob with an <img> element. Tried FIRST because mobile browsers
+ * auto-downsample huge images here (so a 50MP photo won't run the tab out of
+ * memory) and apply EXIF orientation automatically.
+ */
+function decodeWithImg(blob, timeout = 30000) {
   return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(blob);
     const img = new Image();
-    const to = setTimeout(() => { img.src = ''; reject(new Error('image timeout')); }, timeout);
-    img.onload = () => { clearTimeout(to); resolve(img); };
-    img.onerror = () => { clearTimeout(to); reject(new Error('image decode failed')); };
-    img.src = src;
+    const cleanup = () => { clearTimeout(to); URL.revokeObjectURL(url); };
+    const to = setTimeout(() => { img.src = ''; cleanup(); reject(new Error('image timeout')); }, timeout);
+    img.onload = () => { cleanup(); resolve(img); };
+    img.onerror = () => { cleanup(); reject(new Error('image decode failed')); };
+    img.src = url;
   });
 }
 
-// Lazily load the heic2any converter (only when an iPhone/Android HEIC file shows up).
+/** Get a drawable source (<img> or ImageBitmap) from a blob, or throw. */
+async function decodeImage(blob) {
+  try { return await decodeWithImg(blob); } catch (e) { /* try the next decoder */ }
+  if (typeof createImageBitmap === 'function') {
+    try { return await createImageBitmap(blob, { imageOrientation: 'from-image' }); } catch (e) { /* */ }
+    try { return await createImageBitmap(blob); } catch (e) { /* */ }
+  }
+  throw new Error('decode failed');
+}
+
+// Lazily load the heic2any converter (only when a HEIC/HEIF file shows up).
 // Bundled locally (./vendor) so it works fully offline once the app is installed.
 let heicLibPromise = null;
 function loadHeicConverter() {
@@ -197,66 +222,69 @@ async function heicToJpeg(file) {
   return Array.isArray(out) ? out[0] : out;
 }
 
-/**
- * Decode an image blob to something drawable on a canvas.
- * Prefers createImageBitmap: it is far more memory-efficient for big phone-camera
- * photos and applies EXIF orientation, so portrait shots aren't sideways. Falls
- * back to an <img> element where createImageBitmap isn't available.
- */
-async function decodeImage(blob) {
-  if (typeof createImageBitmap === 'function') {
-    try { return await createImageBitmap(blob, { imageOrientation: 'from-image' }); }
-    catch (e) { try { return await createImageBitmap(blob); } catch (e2) { /* fall through */ } }
-  }
-  const url = URL.createObjectURL(blob);
-  try { return await loadImage(url); }
-  finally { URL.revokeObjectURL(url); }
+/** Read a blob into a base64 data-URL unchanged (last-resort upload). */
+function blobToDataURL(blob) {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(r.result);
+    r.onerror = () => reject(r.error || new Error('read failed'));
+    r.readAsDataURL(blob);
+  });
 }
 
 /**
- * Read an <input type=file> image, downscale it and return a base64 data-URL (jpeg).
- *
- * Robust against the two real-world failures seen on Samsung/Android:
- *  - HEIC/HEIF camera photos the browser can't decode (even when the file type
- *    is mis-reported) — we try a normal decode first and, if it fails, convert
- *    from HEIC and retry.
- *  - Very large (12–50MP) camera photos — createImageBitmap handles these far
- *    better than an <img> element.
- * Throws with a clear error instead of failing silently.
+ * Turn a picked image File into an uploadable base64 data-URL.
+ * Order of attempts:
+ *   1. Decode directly (<img> first, then createImageBitmap) and downscale.
+ *   2. If decode fails, convert from HEIC then decode + downscale.
+ *   3. If we still can't decode but the browser CAN display the format, upload
+ *      the original unchanged (never lose the photo).
+ *   4. Only throw for a format we can neither decode nor display.
  */
-async function decodeMaybeConvert(file, convertFirst) {
-  return decodeImage(convertFirst ? await heicToJpeg(file) : file);
-}
-
-export async function readImageResized(file, maxSize = 1280, quality = 0.82) {
+export async function readImageResized(file, maxSize = 1600, quality = 0.85) {
   if (!file) return null;
 
-  // Guess HEIC from the type/extension, but don't trust it: Samsung often
-  // mis-reports camera files. Try the likely path, then the opposite.
-  const looksHeic = /hei[cf]/i.test(file.type || '') || /\.(heic|heif)$/i.test(file.name || '');
-  let source;
-  try {
-    source = await decodeMaybeConvert(file, looksHeic);
-  } catch (e1) {
-    try {
-      source = await decodeMaybeConvert(file, !looksHeic);
-    } catch (e2) {
-      console.warn('Image decode failed (both strategies)', e1, e2);
-      throw e1;
-    }
+  // 1) try a normal decode; 2) if that fails, try a HEIC conversion.
+  let source = null;
+  try { source = await decodeImage(file); } catch (e) { /* maybe HEIC */ }
+  if (!source && HEIC_HINT(file)) {
+    try { source = await decodeImage(await heicToJpeg(file)); } catch (e) { /* fall through */ }
+  }
+  // also try HEIC conversion even when the type wasn't flagged (Samsung mis-reports)
+  if (!source && !HEIC_HINT(file)) {
+    try { source = await decodeImage(await heicToJpeg(file)); } catch (e) { /* fall through */ }
   }
 
-  let width = source.width;
-  let height = source.height;
-  if (width > height && width > maxSize) { height = Math.round(height * maxSize / width); width = maxSize; }
-  else if (height > maxSize) { width = Math.round(width * maxSize / height); height = maxSize; }
+  // 3) Couldn't decode — if it's a web-displayable image, upload it as-is.
+  if (!source) {
+    if (DISPLAYABLE_TYPE.test(file.type || '')) return await blobToDataURL(file);
+    throw new Error('unsupported image');
+  }
 
-  const canvas = document.createElement('canvas');
-  canvas.width = width || source.width;
-  canvas.height = height || source.height;
-  canvas.getContext('2d').drawImage(source, 0, 0, canvas.width, canvas.height);
-  if (typeof source.close === 'function') source.close(); // free ImageBitmap memory
-  return canvas.toDataURL('image/jpeg', quality);
+  // 4) Downscale to keep uploads light. If anything here fails, fall back to the
+  //    original file so the photo is still saved.
+  try {
+    const sw = source.naturalWidth || source.width;
+    const sh = source.naturalHeight || source.height;
+    let width = sw, height = sh;
+    if (width > height && width > maxSize) { height = Math.round(height * maxSize / width); width = maxSize; }
+    else if (height > maxSize) { width = Math.round(width * maxSize / height); height = maxSize; }
+
+    const canvas = document.createElement('canvas');
+    canvas.width = width || sw; canvas.height = height || sh;
+    canvas.getContext('2d').drawImage(source, 0, 0, canvas.width, canvas.height);
+    const dataUrl = canvas.toDataURL('image/jpeg', quality);
+    if (typeof source.close === 'function') source.close();
+    // Guard against a blank/failed canvas export.
+    if (!dataUrl || dataUrl.length < 64) {
+      return DISPLAYABLE_TYPE.test(file.type || '') ? await blobToDataURL(file) : dataUrl;
+    }
+    return dataUrl;
+  } catch (e) {
+    if (typeof source.close === 'function') source.close();
+    if (DISPLAYABLE_TYPE.test(file.type || '')) return await blobToDataURL(file);
+    throw e;
+  }
 }
 
 /** Build a <select> options string with a default placeholder. */
