@@ -289,6 +289,7 @@ export function openDogForm(id) {
         const files = [...input.files];
         if (!files.length) return;
         let failed = 0;
+        let lastErr = '';
         for (const file of files) {
           try {
             const data = await readImageResized(file);
@@ -296,11 +297,13 @@ export function openDogForm(id) {
           } catch (err) {
             console.warn('Photo could not be processed', file.name, err);
             failed++;
+            lastErr = (err && err.message) ? err.message : String(err);
           }
         }
         input.value = ''; // allow re-selecting the same file later
         renderGallery();
-        if (failed) toast(t('photo_error'));
+        // Surface the real reason so device-specific failures can be diagnosed.
+        if (failed) toast(t('photo_error') + (lastErr ? ' — ' + lastErr : ''));
       }
       const camInput = $('#dogPhotoCam', body);
       const galInput = $('#dogPhotoGal', body);

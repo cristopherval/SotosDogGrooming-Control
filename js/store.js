@@ -183,12 +183,17 @@ export const store = {
   // ---- dogs ----
   getDog(id) { return this.data.dogs.find((d) => d.id === id); },
   async upsertDog(dog) {
-    await this._uploadNewPhotos(dog);
+    try {
+      await this._uploadNewPhotos(dog); // can fail on Storage upload (perms/network)
+    } catch (e) {
+      toast(t('save_failed') + (e && e.message ? ': ' + e.message : ''));
+      throw e;
+    }
     dog.photo = firstPhoto(dog.photos);
     const i = this.data.dogs.findIndex((d) => d.id === dog.id);
     if (i >= 0) this.data.dogs[i] = dog; else this.data.dogs.push(dog);
     const { error } = await sb.from('dogs').upsert(dogToRow(dog));
-    if (error) { toast(t('save_failed')); throw error; }
+    if (error) { toast(t('save_failed') + ': ' + error.message); throw error; }
   },
   async deleteDog(id) {
     this.data.dogs = this.data.dogs.filter((d) => d.id !== id);
