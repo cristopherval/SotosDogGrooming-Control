@@ -32,7 +32,7 @@ export const STRINGS = {
 
     // profile
     edit: 'Edit', delete: 'Delete', cancel: 'Cancel', save: 'Save', close: 'Close',
-    owner: 'Owner', vaccines: 'Vaccines', grooming_history: 'Grooming History',
+    owner: 'Owner', vaccines: 'Vaccines', vaccine_card: 'Vaccine card', grooming_history: 'Grooming History',
     no_history: 'No appointments recorded yet.',
     add_appointment: 'Add Appointment', applied_on: 'Applied on', not_applied: 'Not applied',
     expired: 'Expired', valid_until: 'Valid until',
@@ -118,7 +118,7 @@ export const STRINGS = {
     select: 'Seleccionar…',
 
     edit: 'Editar', delete: 'Eliminar', cancel: 'Cancelar', save: 'Guardar', close: 'Cerrar',
-    owner: 'Dueño', vaccines: 'Vacunas', grooming_history: 'Historial de Cortes',
+    owner: 'Dueño', vaccines: 'Vacunas', vaccine_card: 'Carnet de vacunas', grooming_history: 'Historial de Cortes',
     no_history: 'Aún no hay citas registradas.',
     add_appointment: 'Agregar Cita', applied_on: 'Aplicada el', not_applied: 'No aplicada',
     expired: 'Expirada', valid_until: 'Válida hasta',

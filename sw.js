@@ -1,5 +1,5 @@
 // sw.js — minimal offline cache for the app shell
-const CACHE = 'sotos-v17';
+const CACHE = 'sotos-v18';
 const ASSETS = [
   './',
   './index.html',

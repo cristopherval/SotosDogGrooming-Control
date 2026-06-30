@@ -374,6 +374,31 @@ export function openDogProfile(id) {
       </div>`;
   };
 
+  // Vaccine-card uploader (gallery + camera/gallery buttons), editable in-profile.
+  const carnetHTML = () => {
+    const arr = normalizePhotos(dog.photos).carnet;
+    const thumbs = arr.length ? `
+      <div class="photo-gallery profile-gallery">
+        ${arr.map((src, i) => `
+          <div class="photo-thumb">
+            <img src="${src}" alt="" data-zoom/>
+            <button type="button" class="photo-thumb__del" data-rm-carnet="${i}" aria-label="Remove"><i class="ti ti-x"></i></button>
+          </div>`).join('')}
+      </div>` : '';
+    return `
+      ${thumbs}
+      <div class="photo-add-row">
+        <label class="photo-add-btn">
+          <i class="ti ti-camera"></i><span>${escapeHtml(t('take_photo'))}</span>
+          <input type="file" id="carnetCam" accept="image/*" capture="environment" />
+        </label>
+        <label class="photo-add-btn">
+          <i class="ti ti-photo"></i><span>${escapeHtml(t('choose_gallery'))}</span>
+          <input type="file" id="carnetGal" accept="image/*" multiple />
+        </label>
+      </div>`;
+  };
+
   function bodyHTML() {
     return `
       <div class="profile-hero">
@@ -412,6 +437,9 @@ export function openDogProfile(id) {
       <div class="section-title"><i class="ti ti-vaccine"></i> ${escapeHtml(t('vaccines'))}</div>
       <div id="vaxBox">${renderVaccineChecklist(dog)}</div>
 
+      <div class="section-title"><i class="ti ti-id-badge-2"></i> ${escapeHtml(t('vaccine_card'))}</div>
+      <div id="carnetBox">${carnetHTML()}</div>
+
       <div class="section-title">
         <i class="ti ti-timeline"></i> ${escapeHtml(t('grooming_history'))}
         <button class="btn btn-sm btn-primary" data-act="add-appt" style="margin-left:auto"><i class="ti ti-plus"></i> ${escapeHtml(t('add_appointment'))}</button>
@@ -436,6 +464,31 @@ export function openDogProfile(id) {
       const m = statusMeta(fresh);
       const pill = body.querySelector('.profile-hero .status-pill');
       if (pill) { pill.className = `status-pill pill-${m.cls}`; pill.innerHTML = `<i class="ti ${m.icon}"></i> ${escapeHtml(t(m.key))}`; }
+    });
+
+    // vaccine-card upload / delete (saves immediately and refreshes the profile)
+    async function addCarnetFiles(input) {
+      const files = [...input.files];
+      if (!files.length) return;
+      input.disabled = true;
+      dog.photos = normalizePhotos(dog.photos);
+      let failed = 0, lastErr = '';
+      for (const file of files) {
+        try { const data = await readImageResized(file); if (data) dog.photos.carnet.push(data); }
+        catch (err) { failed++; lastErr = (err && err.message) ? err.message : String(err); }
+      }
+      input.value = '';
+      if (failed) toast(t('photo_error') + (lastErr ? ' — ' + lastErr : ''));
+      try { await store.upsertDog(dog); openDogProfile(id); } catch (e) { input.disabled = false; }
+    }
+    const carnetCam = $('#carnetCam', body);
+    const carnetGal = $('#carnetGal', body);
+    if (carnetCam) carnetCam.addEventListener('change', () => addCarnetFiles(carnetCam));
+    if (carnetGal) carnetGal.addEventListener('change', () => addCarnetFiles(carnetGal));
+    $$('[data-rm-carnet]', body).forEach((b) => b.onclick = async () => {
+      dog.photos = normalizePhotos(dog.photos);
+      dog.photos.carnet.splice(Number(b.getAttribute('data-rm-carnet')), 1);
+      try { await store.upsertDog(dog); openDogProfile(id); } catch (e) { /* store toasted */ }
     });
 
     body.querySelector('[data-act="add-appt"]').onclick = () =>

@@ -50,22 +50,20 @@ const nz = (v) => (v === '' || v === undefined ? null : v); // '' -> null for th
 
 // Photos are grouped in three sections. Legacy rows stored a flat array — we
 // migrate those into the "before" section on read.
-export const PHOTO_CATS = ['before', 'after', 'details'];
+export const PHOTO_CATS = ['before', 'after', 'details', 'carnet'];
+const THUMB_CATS = ['before', 'after', 'details']; // carnet (vaccine card) is a document, not the dog's photo
 export function normalizePhotos(raw) {
-  if (Array.isArray(raw)) return { before: raw.slice(), after: [], details: [] };
+  const out = { before: [], after: [], details: [], carnet: [] };
+  if (Array.isArray(raw)) { out.before = raw.slice(); return out; } // legacy flat array
   if (raw && typeof raw === 'object') {
-    return {
-      before: Array.isArray(raw.before) ? raw.before : [],
-      after: Array.isArray(raw.after) ? raw.after : [],
-      details: Array.isArray(raw.details) ? raw.details : [],
-    };
+    for (const c of PHOTO_CATS) if (Array.isArray(raw[c])) out[c] = raw[c];
   }
-  return { before: [], after: [], details: [] };
+  return out;
 }
-/** First available photo across all sections (used for card/avatar thumbnails). */
+/** First photo of the dog (excludes the vaccine card) for card/avatar thumbnails. */
 export function firstPhoto(photos) {
   const p = normalizePhotos(photos);
-  for (const c of PHOTO_CATS) { if (p[c][0]) return p[c][0]; }
+  for (const c of THUMB_CATS) { if (p[c][0]) return p[c][0]; }
   return '';
 }
 
@@ -328,7 +326,7 @@ export const store = {
       appointments: this.data.appointments.length,
       photos: this.data.dogs.reduce((n, d) => {
         const p = normalizePhotos(d.photos);
-        return n + p.before.length + p.after.length + p.details.length;
+        return n + PHOTO_CATS.reduce((s, c) => s + p[c].length, 0);
       }, 0),
     };
   },
