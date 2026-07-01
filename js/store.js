@@ -50,21 +50,26 @@ const nz = (v) => (v === '' || v === undefined ? null : v); // '' -> null for th
 
 // Photos are grouped in three sections. Legacy rows stored a flat array — we
 // migrate those into the "before" section on read.
-export const PHOTO_CATS = ['before', 'after', 'details', 'carnet'];
-const THUMB_CATS = ['before', 'after', 'details']; // carnet (vaccine card) is a document, not the dog's photo
+export const PHOTO_CATS = ['before', 'after', 'details', 'carnet']; // photo arrays
 export function normalizePhotos(raw) {
-  const out = { before: [], after: [], details: [], carnet: [] };
+  const out = { before: [], after: [], details: [], carnet: [], cover: '' };
   if (Array.isArray(raw)) { out.before = raw.slice(); return out; } // legacy flat array
   if (raw && typeof raw === 'object') {
     for (const c of PHOTO_CATS) if (Array.isArray(raw[c])) out[c] = raw[c];
+    if (typeof raw.cover === 'string') out.cover = raw.cover; // chosen display photo
   }
   return out;
 }
-/** First photo of the dog (excludes the vaccine card) for card/avatar thumbnails. */
+/**
+ * The photo shown for the dog (card + profile hero). Uses the explicitly chosen
+ * `cover` if it still exists, otherwise defaults to a photo from the RESULTS
+ * ("after") section, then before, then details. The vaccine card is excluded.
+ */
 export function firstPhoto(photos) {
   const p = normalizePhotos(photos);
-  for (const c of THUMB_CATS) { if (p[c][0]) return p[c][0]; }
-  return '';
+  const ordered = [...p.after, ...p.before, ...p.details]; // results preferred by default
+  if (p.cover && ordered.includes(p.cover)) return p.cover;
+  return ordered[0] || '';
 }
 
 function rowToDog(r) {

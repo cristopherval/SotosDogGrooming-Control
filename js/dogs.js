@@ -3,7 +3,7 @@ import { store, normalizePhotos, firstPhoto } from './store.js';
 import { t, getLang } from './i18n.js';
 import {
   $, $$, openModal, closeModal, confirmDialog, toast, escapeHtml, initials,
-  readImageResized, optionsFrom, waLink, smsLink, telLink, fmtDate, fmtTime, todayISO, openLightbox,
+  readImageResized, optionsFrom, waLink, smsLink, telLink, fmtDate, fmtTime, todayISO, openLightbox, chooseDialog,
 } from './utils.js';
 import {
   dogVaccineStatus, statusMeta, renderVaccineChecklist, bindVaccineChecklist,
@@ -363,14 +363,23 @@ export function openDogProfile(id) {
   const hero = firstPhoto(photos);
   const groomer = dog.employeeId ? store.getEmployee(dog.employeeId) : null;
 
-  // A labeled gallery for one section, or '' when it has no photos.
+  // The photo currently shown as the dog's cover (card + hero).
+  const currentCover = firstPhoto(photos);
+
+  // A labeled gallery for one section, or '' when it has no photos. Each photo
+  // has a star to pick it as the dog's cover; the active cover is highlighted.
   const photoSection = (key, label) => {
     const arr = photos[key];
     if (!arr.length) return '';
     return `
       <div class="section-title section-title--sm">${escapeHtml(label)}</div>
       <div class="photo-gallery profile-gallery">
-        ${arr.map((src) => `<div class="photo-thumb"><img src="${src}" alt="" data-zoom/></div>`).join('')}
+        ${arr.map((src, i) => `
+          <div class="photo-thumb ${src === currentCover ? 'is-cover' : ''}">
+            <img src="${src}" alt="" data-zoom/>
+            <button type="button" class="photo-thumb__move" data-move-cat="${key}" data-move-idx="${i}" title="${escapeHtml(t('move_photo'))}" aria-label="${escapeHtml(t('move_photo'))}"><i class="ti ti-arrows-exchange"></i></button>
+            <button type="button" class="photo-thumb__star" data-cover="${escapeHtml(src)}" title="${escapeHtml(t('set_cover'))}" aria-label="${escapeHtml(t('set_cover'))}"><i class="ti ti-star"></i></button>
+          </div>`).join('')}
       </div>`;
   };
 
@@ -489,6 +498,29 @@ export function openDogProfile(id) {
       dog.photos = normalizePhotos(dog.photos);
       dog.photos.carnet.splice(Number(b.getAttribute('data-rm-carnet')), 1);
       try { await store.upsertDog(dog); openDogProfile(id); } catch (e) { /* store toasted */ }
+    });
+
+    // pick which photo represents the dog (card + hero)
+    $$('[data-cover]', body).forEach((b) => b.onclick = async () => {
+      dog.photos = normalizePhotos(dog.photos);
+      dog.photos.cover = b.getAttribute('data-cover');
+      try { await store.upsertDog(dog); renderDogs(); openDogProfile(id); toast(t('cover_set')); }
+      catch (e) { /* store toasted */ }
+    });
+
+    // move a photo between sections (before / after / details)
+    $$('[data-move-cat]', body).forEach((b) => b.onclick = async () => {
+      const from = b.getAttribute('data-move-cat');
+      const idx = Number(b.getAttribute('data-move-idx'));
+      const dests = PHOTO_SECTIONS.filter((s) => s.key !== from);
+      // chooseDialog replaces the profile modal, so reopen the profile afterwards.
+      const dest = await chooseDialog(t('move_to'), dests.map((s) => ({ value: s.key, label: t(s.label) })));
+      if (!dest) { openDogProfile(id); return; }
+      dog.photos = normalizePhotos(dog.photos);
+      const [moved] = dog.photos[from].splice(idx, 1);
+      if (moved) dog.photos[dest].push(moved);
+      try { await store.upsertDog(dog); toast(t('saved')); } catch (e) { /* store toasted */ }
+      openDogProfile(id);
     });
 
     body.querySelector('[data-act="add-appt"]').onclick = () =>

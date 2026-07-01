@@ -161,6 +161,25 @@ export function confirmDialog(message, opts = {}) {
   });
 }
 
+/** Pick one option from a list. Resolves the chosen value, or null if cancelled. */
+export function chooseDialog(title, choices) {
+  return new Promise((resolve) => {
+    let done = false;
+    openModal({
+      title,
+      bodyHTML: `<div class="choose-list">${choices.map((c) =>
+        `<button class="btn btn-outline-primary choose-opt" data-choice="${escapeHtml(c.value)}">${escapeHtml(c.label)}</button>`).join('')}</div>`,
+      footHTML: `<button class="btn btn-outline-secondary" data-choice-cancel>${escapeHtml(t('cancel'))}</button>`,
+      onMount(body, foot) {
+        const pick = (v) => { done = true; closeModal(); resolve(v); };
+        $$('[data-choice]', body).forEach((b) => b.onclick = () => pick(b.getAttribute('data-choice')));
+        foot.querySelector('[data-choice-cancel]').onclick = () => pick(null);
+      },
+      onClose() { if (!done) resolve(null); },
+    });
+  });
+}
+
 // ---------------- Photo handling ----------------
 //
 // Goal: ANY photo the user picks must end up uploaded — no silent failures.
