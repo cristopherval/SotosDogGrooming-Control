@@ -163,11 +163,14 @@ export function confirmDialog(message, opts = {}) {
 
 // ---------------- Photo handling ----------------
 //
-// GUARANTEE: every photo we hand back is a JPEG we successfully decoded and
-// re-encoded ourselves. We NEVER upload the original file untouched — doing so
-// once let HEIC/HEIF camera photos (which Android Chrome cannot display) get
-// stored and then show up blank. If we can't turn a file into a real JPEG, we
-// throw so the caller shows an error instead of saving an invisible photo.
+// Goal: ANY photo the user picks must end up uploaded — no silent failures.
+// The hard cases on Android (Samsung) are (a) very large camera photos
+// (12–50MP) and (b) HEIC/HEIF. The pipeline below is defensive at every step
+// and, as a last resort, uploads the original file unchanged rather than losing
+// the photo.
+
+const DISPLAYABLE_TYPE = /^image\/(jpe?g|png|webp|gif)$/i; // browsers render these directly
+const HEIC_HINT = (file) => /hei[cf]/i.test(file.type || '') || /\.(heic|heif)$/i.test(file.name || '');
 
 /**
  * Decode a blob with an <img> element. Tried FIRST because mobile browsers
@@ -196,72 +199,92 @@ async function decodeImage(blob) {
   throw new Error('decode failed');
 }
 
-// Lazily load the heic2any converter. Tries the local copy first (offline), then
-// the CDN as a fallback in case the bundled file didn't load on the device.
+// Lazily load the heic2any converter (only when a HEIC/HEIF file shows up).
+// Bundled locally (./vendor) so it works fully offline once the app is installed.
 let heicLibPromise = null;
 function loadHeicConverter() {
   if (heicLibPromise) return heicLibPromise;
-  const sources = [
-    './vendor/heic2any.min.js',
-    'https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js',
-  ];
   heicLibPromise = new Promise((resolve, reject) => {
     if (window.heic2any) return resolve(window.heic2any);
-    let i = 0;
-    const tryNext = () => {
-      if (i >= sources.length) return reject(new Error('heic converter unavailable'));
-      const s = document.createElement('script');
-      s.src = sources[i++];
-      s.onload = () => (window.heic2any ? resolve(window.heic2any) : tryNext());
-      s.onerror = () => tryNext();
-      document.head.appendChild(s);
-    };
-    tryNext();
+    const s = document.createElement('script');
+    s.src = './vendor/heic2any.min.js';
+    s.onload = () => resolve(window.heic2any);
+    s.onerror = () => reject(new Error('heic converter unavailable'));
+    document.head.appendChild(s);
   });
   return heicLibPromise;
 }
 
-/** Convert a HEIC/HEIF blob to a JPEG blob using the converter. */
+/** Convert a HEIC/HEIF blob to a JPEG blob using the local converter. */
 async function heicToJpeg(file) {
   const heic2any = await loadHeicConverter();
   const out = await heic2any({ blob: file, toType: 'image/jpeg', quality: 0.9 });
   return Array.isArray(out) ? out[0] : out;
 }
 
-/**
- * Get a drawable image source from a picked file, or throw if impossible.
- * Tries a direct decode first; if that fails, assumes HEIC/HEIF (Android often
- * mis-reports the type) and converts before decoding.
- */
-async function getDrawableSource(file) {
-  try { return await decodeImage(file); } catch (e) { /* probably HEIC */ }
-  try { return await decodeImage(await heicToJpeg(file)); } catch (e) { /* give up below */ }
-  throw new Error('unsupported image');
+/** Read a blob into a base64 data-URL unchanged (last-resort upload). */
+function blobToDataURL(blob) {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(r.result);
+    r.onerror = () => reject(r.error || new Error('read failed'));
+    r.readAsDataURL(blob);
+  });
 }
 
 /**
- * Turn a picked image File into an uploadable JPEG base64 data-URL.
- * Always returns a freshly re-encoded JPEG (guaranteed to display everywhere),
- * or throws if the file can't be decoded at all.
+ * Turn a picked image File into an uploadable base64 data-URL.
+ * Order of attempts:
+ *   1. Decode directly (<img> first, then createImageBitmap) and downscale.
+ *   2. If decode fails, convert from HEIC then decode + downscale.
+ *   3. If we still can't decode but the browser CAN display the format, upload
+ *      the original unchanged (never lose the photo).
+ *   4. Only throw for a format we can neither decode nor display.
  */
 export async function readImageResized(file, maxSize = 1600, quality = 0.85) {
   if (!file) return null;
 
-  const source = await getDrawableSource(file); // throws if we truly can't read it
-  const sw = source.naturalWidth || source.width;
-  const sh = source.naturalHeight || source.height;
-  let width = sw, height = sh;
-  if (width > height && width > maxSize) { height = Math.round(height * maxSize / width); width = maxSize; }
-  else if (height > maxSize) { width = Math.round(width * maxSize / height); height = maxSize; }
+  // 1) try a normal decode; 2) if that fails, try a HEIC conversion.
+  let source = null;
+  try { source = await decodeImage(file); } catch (e) { /* maybe HEIC */ }
+  if (!source && HEIC_HINT(file)) {
+    try { source = await decodeImage(await heicToJpeg(file)); } catch (e) { /* fall through */ }
+  }
+  // also try HEIC conversion even when the type wasn't flagged (Samsung mis-reports)
+  if (!source && !HEIC_HINT(file)) {
+    try { source = await decodeImage(await heicToJpeg(file)); } catch (e) { /* fall through */ }
+  }
 
-  const canvas = document.createElement('canvas');
-  canvas.width = width || sw; canvas.height = height || sh;
-  canvas.getContext('2d').drawImage(source, 0, 0, canvas.width, canvas.height);
-  if (typeof source.close === 'function') source.close(); // free ImageBitmap memory
+  // 3) Couldn't decode — if it's a web-displayable image, upload it as-is.
+  if (!source) {
+    if (DISPLAYABLE_TYPE.test(file.type || '')) return await blobToDataURL(file);
+    throw new Error('unsupported image');
+  }
 
-  const dataUrl = canvas.toDataURL('image/jpeg', quality);
-  if (!dataUrl || dataUrl.length < 64) throw new Error('encode failed'); // never store a blank
-  return dataUrl;
+  // 4) Downscale to keep uploads light. If anything here fails, fall back to the
+  //    original file so the photo is still saved.
+  try {
+    const sw = source.naturalWidth || source.width;
+    const sh = source.naturalHeight || source.height;
+    let width = sw, height = sh;
+    if (width > height && width > maxSize) { height = Math.round(height * maxSize / width); width = maxSize; }
+    else if (height > maxSize) { width = Math.round(width * maxSize / height); height = maxSize; }
+
+    const canvas = document.createElement('canvas');
+    canvas.width = width || sw; canvas.height = height || sh;
+    canvas.getContext('2d').drawImage(source, 0, 0, canvas.width, canvas.height);
+    const dataUrl = canvas.toDataURL('image/jpeg', quality);
+    if (typeof source.close === 'function') source.close();
+    // Guard against a blank/failed canvas export.
+    if (!dataUrl || dataUrl.length < 64) {
+      return DISPLAYABLE_TYPE.test(file.type || '') ? await blobToDataURL(file) : dataUrl;
+    }
+    return dataUrl;
+  } catch (e) {
+    if (typeof source.close === 'function') source.close();
+    if (DISPLAYABLE_TYPE.test(file.type || '')) return await blobToDataURL(file);
+    throw e;
+  }
 }
 
 /** Build a <select> options string with a default placeholder. */
