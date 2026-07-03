@@ -50,23 +50,26 @@ const nz = (v) => (v === '' || v === undefined ? null : v); // '' -> null for th
 
 // Photos are grouped in three sections. Legacy rows stored a flat array — we
 // migrate those into the "before" section on read.
-export const PHOTO_CATS = ['before', 'after', 'details'];
+export const PHOTO_CATS = ['before', 'after', 'details']; // photo arrays
 export function normalizePhotos(raw) {
-  if (Array.isArray(raw)) return { before: raw.slice(), after: [], details: [] };
+  const out = { before: [], after: [], details: [], cover: '' };
+  if (Array.isArray(raw)) { out.before = raw.slice(); return out; } // legacy flat array
   if (raw && typeof raw === 'object') {
-    return {
-      before: Array.isArray(raw.before) ? raw.before : [],
-      after: Array.isArray(raw.after) ? raw.after : [],
-      details: Array.isArray(raw.details) ? raw.details : [],
-    };
+    for (const c of PHOTO_CATS) if (Array.isArray(raw[c])) out[c] = raw[c];
+    if (typeof raw.cover === 'string') out.cover = raw.cover; // chosen main photo
   }
-  return { before: [], after: [], details: [] };
+  return out;
 }
-/** First available photo across all sections (used for card/avatar thumbnails). */
+/**
+ * The photo shown for the dog (card + profile hero). Uses the explicitly chosen
+ * `cover` if it still exists, otherwise defaults to a RESULTS ("after") photo,
+ * then before, then details.
+ */
 export function firstPhoto(photos) {
   const p = normalizePhotos(photos);
-  for (const c of PHOTO_CATS) { if (p[c][0]) return p[c][0]; }
-  return '';
+  const ordered = [...p.after, ...p.before, ...p.details];
+  if (p.cover && ordered.includes(p.cover)) return p.cover;
+  return ordered[0] || '';
 }
 
 function rowToDog(r) {
