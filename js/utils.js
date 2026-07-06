@@ -98,22 +98,27 @@ export function openModal({ title, bodyHTML, footHTML = '', onMount, onClose }) 
   if (typeof onMount === 'function') onMount($('#modalBody'), $('#modalFoot'));
 }
 
-export function closeModal() {
+/** Actually hide the modal and run its onClose. Returns true if it was open. */
+function doCloseModal() {
   const root = $('#modalRoot');
-  if (root.classList.contains('d-none')) return;
+  if (root.classList.contains('d-none')) return false;
   root.classList.add('d-none');
   document.body.style.overflow = '';
   $('#modalBody').innerHTML = '';
   $('#modalFoot').innerHTML = '';
   const cb = modalOnClose; modalOnClose = null;
   if (typeof cb === 'function') cb();
+  return true;
 }
+
+export function closeModal() { doCloseModal(); }
 
 export function isModalOpen() {
   return !$('#modalRoot').classList.contains('d-none');
 }
 
 // ---------------- Lightbox (full-screen image viewer) ----------------
+let currentLightboxClose = null; // set while a photo is enlarged, so Back can close it
 /** Open an image full-screen with an X in the corner to close it. */
 export function openLightbox(src) {
   if (!src) return;
@@ -125,6 +130,7 @@ export function openLightbox(src) {
 
   function close() {
     overlay.remove();
+    if (currentLightboxClose === close) currentLightboxClose = null;
     document.removeEventListener('keydown', onKey, true);
   }
   function onKey(e) {
@@ -137,7 +143,23 @@ export function openLightbox(src) {
   });
   document.addEventListener('keydown', onKey, true);
   document.body.appendChild(overlay);
+  currentLightboxClose = close;
 }
+
+// ---------------- Back-button guard ----------------
+// The phone's Back button/gesture must NEVER close the app. We keep a history
+// entry armed at all times: a Back press closes the open photo viewer or modal
+// if there is one, otherwise it does nothing — the app can only be left via the
+// Home button / app switcher.
+(function armBackGuard() {
+  if (typeof window === 'undefined' || !window.history) return;
+  try { history.pushState({ sotos: true }, ''); } catch (e) { /* ignore */ }
+  window.addEventListener('popstate', () => {
+    if (currentLightboxClose) currentLightboxClose();
+    else doCloseModal();
+    try { history.pushState({ sotos: true }, ''); } catch (e) { /* re-arm */ }
+  });
+})();
 
 /** Simple confirm dialog returning a Promise<boolean>. */
 export function confirmDialog(message, opts = {}) {
