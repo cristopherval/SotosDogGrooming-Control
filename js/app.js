@@ -10,6 +10,7 @@ import { renderSettings, exportBackup, triggerImport, handleImportFile, setLangu
 import { openVaccineForm } from './vaccines.js';
 import { upcomingAppointments, sendReminder, serviceLabels, renderAppointments } from './appointments.js';
 import { fmtDate } from './utils.js';
+import { initThemes, applyTheme, resolveTheme } from './themes.js';
 
 const views = {
   dogs: renderDogs,
@@ -58,18 +59,7 @@ function renderUpcoming() {
   });
 }
 
-// ---------------- Theme ----------------
-function applyTheme(theme) {
-  document.documentElement.setAttribute('data-bs-theme', theme);
-  const icon = $('#themeToggle i');
-  icon.className = theme === 'dark' ? 'ti ti-sun' : 'ti ti-moon';
-  document.querySelector('meta[name="theme-color"]').setAttribute('content', theme === 'dark' ? '#14151c' : '#7B61FF');
-}
-function toggleTheme() {
-  const next = (store.data.settings.theme === 'dark') ? 'light' : 'dark';
-  store.setSetting('theme', next);
-  applyTheme(next);
-}
+// Theme handling lives in themes.js (12+1 swappable themes with its own selector).
 
 // ---------------- Refresh button (Home) ----------------
 // Re-fetch the latest data from Supabase and re-render, without a full reload.
@@ -109,9 +99,6 @@ function wireEvents() {
   // bottom nav
   $$('.bottom-nav__item').forEach((b) => b.onclick = () => showView(b.getAttribute('data-nav')));
 
-  // theme
-  $('#themeToggle').onclick = toggleTheme;
-
   // home refresh button (tap = refresh data, hold = full reload)
   wireRefresh();
 
@@ -146,7 +133,7 @@ function wireEvents() {
   $('#importFile').addEventListener('change', (e) => {
     handleImportFile(e.target.files[0], async () => {
       e.target.value = '';
-      applyTheme(store.data.settings.theme);
+      applyTheme(resolveTheme(store.data.settings.theme));
       applyTranslations();
       showView('settings');
     });
@@ -249,7 +236,7 @@ async function migrateLocal(btn) {
 
 // ---------------- Boot ----------------
 async function init() {
-  applyTheme(store.data.settings.theme || 'light');
+  initThemes(); // applies saved theme + builds the theme selector
   applyTranslations();
   wireEvents();
   wireAuth();

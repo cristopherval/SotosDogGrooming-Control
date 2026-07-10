@@ -61,6 +61,7 @@ export const STRINGS = {
     stat_dogs: 'Total Dogs', stat_employees: 'Total Employees',
     stat_appointments: 'Total Appointments', stat_photos: 'Total Photos',
     language: 'Language',
+    theme: 'Theme', themes_light: 'Light', themes_dark: 'Dark',
 
     // confirmations / toasts
     confirm_delete_dog: 'Delete this dog and its history?',
@@ -144,6 +145,7 @@ export const STRINGS = {
     stat_dogs: 'Total Perros', stat_employees: 'Total Empleados',
     stat_appointments: 'Total Citas', stat_photos: 'Total Fotos',
     language: 'Idioma',
+    theme: 'Tema', themes_light: 'Claros', themes_dark: 'Oscuros',
 
     confirm_delete_dog: '¿Eliminar este perro y su historial?',
     confirm_delete_emp: '¿Eliminar este empleado?',

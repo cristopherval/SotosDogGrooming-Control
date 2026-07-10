@@ -1,14 +1,16 @@
 // sw.js — minimal offline cache for the app shell
-const CACHE = 'sotos-v20';
+const CACHE = 'sotos-v22';
 const ASSETS = [
   './',
   './index.html',
   './css/style.css',
+  './css/themes.css',
   './js/app.js',
   './js/store.js',
   './js/config.js',
   './js/i18n.js',
   './js/utils.js',
+  './js/themes.js',
   './js/dogs.js',
   './js/employees.js',
   './js/appointments.js',

@@ -20,6 +20,25 @@
 
   <!-- Custom styles -->
   <link rel="stylesheet" href="css/style.css" />
+  <link rel="stylesheet" href="css/themes.css" />
+
+  <!-- Apply the saved theme BEFORE the body paints (no flash of wrong theme) -->
+  <script>
+    (function () {
+      try {
+        var s = JSON.parse(localStorage.getItem('sotos_settings') || '{}');
+        var id = s.theme;
+        var legacy = { light: 'minimal', dark: 'dark' };
+        if (legacy[id]) id = legacy[id];
+        var known = ['minimal','arena','oceano','esmeralda','coral','glass','clay','brutal','dark','medianoche','bosque','vino','carbon'];
+        if (known.indexOf(id) < 0) id = 'minimal';
+        var darks = ['dark','medianoche','bosque','vino','carbon'];
+        var el = document.documentElement;
+        el.setAttribute('data-theme', id);
+        el.setAttribute('data-bs-theme', darks.indexOf(id) >= 0 ? 'dark' : 'light');
+      } catch (e) { document.documentElement.setAttribute('data-theme', 'minimal'); }
+    })();
+  </script>
 </head>
 <body>
   <!-- ====================== TOP BAR ====================== -->
@@ -33,9 +52,6 @@
         </div>
       </div>
       <div class="app-header__actions">
-        <button id="themeToggle" class="btn btn-icon btn-theme" type="button" aria-label="Toggle theme">
-          <i class="ti ti-moon"></i>
-        </button>
         <button class="btn btn-icon btn-theme" type="button" data-action="logout" aria-label="Log out" title="Log out">
           <i class="ti ti-logout"></i>
         </button>
@@ -204,6 +220,20 @@
             <button class="btn btn-primary" data-action="export-backup"><i class="ti ti-download"></i><span data-i18n="export_backup">Export Backup</span></button>
             <button class="btn btn-outline-primary" data-action="import-backup"><i class="ti ti-upload"></i><span data-i18n="restore_backup">Restore Backup</span></button>
             <input id="importFile" type="file" accept="application/json,.json" hidden />
+          </div>
+        </div>
+      </div>
+
+      <!-- Theme -->
+      <div class="card soft-card">
+        <div class="card-body">
+          <strong data-i18n="theme">Theme</strong>
+          <div class="mt-2">
+            <button id="themeBtn" class="theme-btn" type="button" aria-label="Theme">
+              <span class="theme-btn__dots" id="themeBtnDots"></span>
+              <span class="theme-btn__name" id="themeBtnName"></span>
+              <i class="ti ti-menu-2 theme-btn__ico"></i>
+            </button>
           </div>
         </div>
       </div>
