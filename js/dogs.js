@@ -3,7 +3,7 @@ import { store, normalizePhotos, firstPhoto } from './store.js';
 import { t, getLang } from './i18n.js';
 import {
   $, $$, openModal, closeModal, confirmDialog, toast, escapeHtml, initials,
-  readImageResized, optionsFrom, waLink, smsLink, telLink, fmtDate, fmtTime, todayISO, openLightbox, chooseDialog,
+  readImageResized, optionsFrom, waLink, smsLink, telLink, fmtDate, fmtTime, todayISO, openLightbox,
 } from './utils.js';
 import {
   dogVaccineStatus, statusMeta, renderVaccineChecklist, bindVaccineChecklist,
@@ -14,13 +14,6 @@ import { openAppointmentForm, serviceLabels, sendReminder } from './appointments
 const filters = { search: '', breed: '', color: '', sex: '', status: '' };
 
 const SEX_OPTIONS = [{ value: 'Male', label: 'male' }, { value: 'Female', label: 'female' }];
-
-// Photo sections: arrival ("before"), results ("after"), and detail shots.
-const PHOTO_SECTIONS = [
-  { key: 'before', label: 'photos_before' },
-  { key: 'after', label: 'photos_after' },
-  { key: 'details', label: 'photos_details' },
-];
 
 const BLADE_NUMBERS = ['#3', '#3½', '#4', '#5', '#7', '#9', '#10', '#15', '#30', '#40'];
 
@@ -188,12 +181,7 @@ export function openDogForm(id) {
   openModal({
     title: d ? t('dog_edit') : t('dog_new'),
     bodyHTML: `
-      <div class="field">
-        <label class="form-label">${escapeHtml(t('photos'))}</label>
-        <select id="photoCat" class="form-select">
-          ${PHOTO_SECTIONS.map((s) => `<option value="${s.key}">${escapeHtml(t(s.label))}</option>`).join('')}
-        </select>
-      </div>
+      <label class="form-label">${escapeHtml(t('photos'))}</label>
       <div class="photo-gallery" id="photoGallery"></div>
       <div class="photo-add-row">
         <label class="photo-add-btn">
@@ -261,14 +249,11 @@ export function openDogForm(id) {
       <button class="btn btn-outline-secondary" data-act="cancel">${escapeHtml(t('cancel'))}</button>
       <button class="btn btn-primary" data-act="save">${escapeHtml(t('save'))}</button>`,
     onMount(body, foot) {
-      const catSelect = $('#photoCat', body);
       const gallery = $('#photoGallery', body);
-      const currentCat = () => catSelect.value;
 
-      // Render the thumbnails for the currently selected section only.
+      // Render the thumbnails for the single photo list.
       function renderGallery() {
-        const cat = currentCat();
-        const arr = photos[cat];
+        const arr = photos.list;
         gallery.classList.toggle('d-none', arr.length === 0);
         gallery.innerHTML = arr.map((src, i) => `
           <div class="photo-thumb">
@@ -280,12 +265,10 @@ export function openDogForm(id) {
           renderGallery();
         });
       }
-      catSelect.addEventListener('change', renderGallery);
       renderGallery();
 
-      // Read + resize selected files into the currently selected section.
+      // Read + resize selected files into the photo list.
       async function addFiles(input) {
-        const cat = currentCat();
         const files = [...input.files];
         if (!files.length) return;
         let failed = 0;
@@ -293,7 +276,7 @@ export function openDogForm(id) {
         for (const file of files) {
           try {
             const data = await readImageResized(file);
-            if (data) photos[cat].push(data);
+            if (data) photos.list.push(data);
           } catch (err) {
             console.warn('Photo could not be processed', file.name, err);
             failed++;
@@ -366,19 +349,17 @@ export function openDogProfile(id) {
   // The photo currently shown as the dog's main photo (card + hero).
   const currentCover = firstPhoto(photos);
 
-  // A labeled gallery for one section, or '' when it has no photos. Each photo
-  // has a move button (send to another section) and a star (make it the main
-  // photo); the active main photo is highlighted.
-  const photoSection = (key, label) => {
-    const arr = photos[key];
+  // The full photo gallery. Each photo has a star to make it the main photo;
+  // the active main photo is highlighted.
+  const photoGallery = () => {
+    const arr = photos.list;
     if (!arr.length) return '';
     return `
-      <div class="section-title section-title--sm">${escapeHtml(label)}</div>
+      <div class="section-title section-title--sm">${escapeHtml(t('photos'))}</div>
       <div class="photo-gallery profile-gallery">
-        ${arr.map((src, i) => `
+        ${arr.map((src) => `
           <div class="photo-thumb ${src === currentCover ? 'is-cover' : ''}">
             <img src="${src}" alt="" data-zoom/>
-            <button type="button" class="photo-thumb__move" data-move-cat="${key}" data-move-idx="${i}" title="${escapeHtml(t('move_photo'))}" aria-label="${escapeHtml(t('move_photo'))}"><i class="ti ti-arrows-exchange"></i></button>
             <button type="button" class="photo-thumb__star" data-cover="${escapeHtml(src)}" title="${escapeHtml(t('set_cover'))}" aria-label="${escapeHtml(t('set_cover'))}"><i class="ti ti-star"></i></button>
           </div>`).join('')}
       </div>`;
@@ -408,7 +389,7 @@ export function openDogProfile(id) {
         ${infoBox(t('comb_body'), dog.combBody ? combLabel(dog.combBody) : '')}
       </div>
 
-      ${PHOTO_SECTIONS.map((s) => photoSection(s.key, t(s.label))).join('')}
+      ${photoGallery()}
 
       ${dog.phone ? `
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:6px">
@@ -442,21 +423,6 @@ export function openDogProfile(id) {
       dog.photos.cover = b.getAttribute('data-cover');
       try { await store.upsertDog(dog); renderDogs(); openDogProfile(id); toast(t('cover_set')); }
       catch (e) { /* store toasted */ }
-    });
-
-    // move a photo to another section (before / after / details)
-    $$('[data-move-cat]', body).forEach((b) => b.onclick = async () => {
-      const from = b.getAttribute('data-move-cat');
-      const idx = Number(b.getAttribute('data-move-idx'));
-      const dests = PHOTO_SECTIONS.filter((s) => s.key !== from);
-      // chooseDialog replaces the profile modal, so reopen the profile afterwards.
-      const dest = await chooseDialog(t('move_to'), dests.map((s) => ({ value: s.key, label: t(s.label) })));
-      if (!dest) { openDogProfile(id); return; }
-      dog.photos = normalizePhotos(dog.photos);
-      const [moved] = dog.photos[from].splice(idx, 1);
-      if (moved) dog.photos[dest].push(moved);
-      try { await store.upsertDog(dog); toast(t('saved')); } catch (e) { /* store toasted */ }
-      openDogProfile(id);
     });
 
     // vaccine checklist live status update
