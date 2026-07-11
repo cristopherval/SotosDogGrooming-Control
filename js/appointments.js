@@ -4,9 +4,10 @@ import { store } from './store.js';
 import { t } from './i18n.js';
 import {
   $, $$, openModal, closeModal, confirmDialog, toast, escapeHtml, optionsFrom,
-  todayISO, nowTime, fmtDate, fmtTime, durationLabel,
+  todayISO, nowTime, fmtDate, fmtTime, durationLabel, money,
 } from './utils.js';
 import { openDogProfile } from './dogs.js';
+import { openVisitReceipt } from './print.js';
 
 // Service definitions (order 1..5). 'full' is the master toggle.
 export const SERVICES = [
@@ -286,6 +287,11 @@ export function renderAppointments() {
     const v = visitById(b.getAttribute('data-checkout'));
     if (v) markDeparture(v, renderAppointments);
   });
+  // printable / shareable receipt
+  $$('[data-receipt]', list).forEach((b) => b.onclick = (e) => {
+    e.stopPropagation();
+    openVisitReceipt(b.getAttribute('data-receipt'));
+  });
   // edit a visit
   $$('[data-edit-visit]', list).forEach((b) => b.onclick = (e) => {
     e.stopPropagation();
@@ -314,13 +320,14 @@ function liveCard(v) {
           <span class="visit-live__dog">${escapeHtml(dog.name)}</span>
           <span class="visit-live__in"><i class="ti ti-login-2"></i> ${escapeHtml(fmtTime(v.time))}</span>
         </div>
-        <div class="visit-live__meta">${emp ? `<i class="ti ti-user"></i> ${escapeHtml(emp.fullName)}` : ''}${v.price ? ` · ${escapeHtml(v.price)}` : ''}</div>
+        <div class="visit-live__meta">${emp ? `<i class="ti ti-user"></i> ${escapeHtml(emp.fullName)}` : ''}${v.price ? ` · ${escapeHtml(money(v.price))}` : ''}</div>
         <div class="tl-services">${tags || `<span class="text-muted small">—</span>`}</div>
       </div>
       <div class="visit-live__actions">
         <button class="btn btn-sm btn-checkout" data-checkout="${escapeHtml(v.id)}">
           <i class="ti ti-logout-2"></i> ${escapeHtml(t('mark_departure'))}
         </button>
+        <button class="btn btn-sm btn-icon btn-outline-secondary" data-receipt="${escapeHtml(v.id)}" aria-label="${escapeHtml(t('receipt'))}"><i class="ti ti-receipt"></i></button>
         <button class="btn btn-sm btn-icon btn-outline-primary" data-edit-visit="${escapeHtml(v.id)}" aria-label="${escapeHtml(t('edit'))}"><i class="ti ti-pencil"></i></button>
         <button class="btn btn-sm btn-icon text-danger" data-del-visit="${escapeHtml(v.id)}" aria-label="${escapeHtml(t('delete'))}"><i class="ti ti-trash"></i></button>
       </div>
@@ -338,11 +345,12 @@ function historyRow(v) {
     <div class="appt-row">
       <div class="appt-row__time" data-dog="${escapeHtml(dog.id)}">${v.time ? escapeHtml(span) : '—'}</div>
       <div class="appt-row__main" data-dog="${escapeHtml(dog.id)}">
-        <div class="appt-row__dog">${escapeHtml(dog.name)}${v.price ? ` <span class="visit-price">${escapeHtml(v.price)}</span>` : ''}</div>
+        <div class="appt-row__dog">${escapeHtml(dog.name)}${v.price ? ` <span class="visit-price">${escapeHtml(money(v.price))}</span>` : ''}</div>
         <div class="appt-row__meta">${emp ? `<i class="ti ti-user"></i> ${escapeHtml(emp.fullName)}` : ''}${dur ? `${emp ? ' · ' : ''}<i class="ti ti-clock"></i> ${escapeHtml(dur)}` : ''}</div>
         <div class="tl-services">${tags || `<span class="text-muted small">—</span>`}</div>
       </div>
       <div class="appt-row__actions">
+        <button class="btn btn-sm btn-icon btn-outline-secondary" data-receipt="${escapeHtml(v.id)}" aria-label="${escapeHtml(t('receipt'))}"><i class="ti ti-receipt"></i></button>
         <button class="btn btn-sm btn-icon btn-outline-primary" data-edit-visit="${escapeHtml(v.id)}" aria-label="${escapeHtml(t('edit'))}"><i class="ti ti-pencil"></i></button>
         <button class="btn btn-sm btn-icon text-danger" data-del-visit="${escapeHtml(v.id)}" aria-label="${escapeHtml(t('delete'))}"><i class="ti ti-trash"></i></button>
       </div>

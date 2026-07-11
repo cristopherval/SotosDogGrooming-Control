@@ -26,6 +26,12 @@ export const STRINGS = {
     checked_out: 'Departure registered', duration: 'Duration', amount: 'Amount',
     confirm_delete_visit: 'Delete this visit?', visits_word: 'visits',
 
+    // printable / shareable documents
+    dog_sheet: 'Grooming Sheet', receipt: 'Receipt',
+    print: 'Print', share: 'Share', print_share_sheet: 'Print / Share sheet',
+    total: 'Total', thanks: 'Thank you for your business!',
+    preparing: 'Preparing…', copied: 'Copied to clipboard', share_failed: 'Could not share',
+
     // dog form
     dog_new: 'New Dog', dog_edit: 'Edit Dog',
     photo_hint: 'Add photos from the camera or the gallery',
@@ -125,6 +131,12 @@ export const STRINGS = {
     arrival: 'Entrada', departure: 'Salida', mark_departure: 'Marcar salida',
     checked_out: 'Salida registrada', duration: 'Duración', amount: 'Cobro',
     confirm_delete_visit: '¿Eliminar esta visita?', visits_word: 'visitas',
+
+    // documentos imprimibles / compartibles
+    dog_sheet: 'Ficha del Perro', receipt: 'Recibo',
+    print: 'Imprimir', share: 'Compartir', print_share_sheet: 'Imprimir / Compartir ficha',
+    total: 'Total', thanks: '¡Gracias por su preferencia!',
+    preparing: 'Preparando…', copied: 'Copiado al portapapeles', share_failed: 'No se pudo compartir',
 
     dog_new: 'Nuevo Perro', dog_edit: 'Editar Perro',
     photo_hint: 'Agrega fotos desde la cámara o la galería',

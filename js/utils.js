@@ -68,6 +68,16 @@ export function addMonths(iso, months) {
   return d.toISOString().slice(0, 10);
 }
 
+/**
+ * Price for display. The price field is free text, so only prepend "$" when the
+ * user didn't type it themselves ("45" -> "$45", "$45" -> "$45").
+ */
+export function money(value) {
+  const s = String(value || '').trim();
+  if (!s) return '';
+  return s.startsWith('$') ? s : `$${s}`;
+}
+
 /** Keep only digits. */
 export function cleanPhone(phone = '') { return phone.replace(/[^\d]/g, ''); }
 

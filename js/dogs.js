@@ -3,12 +3,13 @@ import { store, normalizePhotos, firstPhoto } from './store.js';
 import { t, getLang } from './i18n.js';
 import {
   $, $$, openModal, closeModal, confirmDialog, toast, escapeHtml, initials,
-  readImageResized, optionsFrom, waLink, smsLink, telLink, fmtDate, fmtTime, durationLabel, todayISO, openLightbox,
+  readImageResized, optionsFrom, waLink, smsLink, telLink, fmtDate, fmtTime, durationLabel, todayISO, openLightbox, money,
 } from './utils.js';
 import {
   dogVaccineStatus, statusMeta, renderVaccineChecklist, bindVaccineChecklist,
 } from './vaccines.js';
 import { openVisitForm, serviceLabels, markDeparture } from './appointments.js';
+import { openDogSheet } from './print.js';
 
 // in-memory filter state for the home view
 const filters = { search: '', breed: '', color: '', sex: '', status: '' };
@@ -44,7 +45,7 @@ const COMB_OPTIONS = [
 ];
 
 /** Human label for a comb size, e.g. 'Red · 1/8"'. */
-function combLabel(size) {
+export function combLabel(size) {
   const c = COMB_OPTIONS.find((o) => o.size === size);
   if (!c) return size;
   return `${getLang() === 'es' ? c.es : c.en} · ${c.size}`;
@@ -394,12 +395,16 @@ export function openDogProfile(id) {
         ${infoBox(t('owner'), owner)}
         ${infoBox(t('birthday'), dog.birthday ? fmtDate(dog.birthday) : '')}
         ${infoBox(t('attended_by'), groomer ? groomer.fullName : '')}
-        ${infoBox(t('price'), dog.price)}
+        ${infoBox(t('price'), money(dog.price))}
         ${infoBox(t('blade_head'), dog.bladeHead)}
         ${infoBox(t('blade_body'), dog.bladeBody)}
         ${infoBox(t('comb_head'), dog.combHead ? combLabel(dog.combHead) : '')}
         ${infoBox(t('comb_body'), dog.combBody ? combLabel(dog.combBody) : '')}
       </div>
+
+      <button class="btn btn-outline-primary btn-sheet" data-act="sheet">
+        <i class="ti ti-printer"></i> ${escapeHtml(t('print_share_sheet'))}
+      </button>
 
       ${photoGallery()}
 
@@ -449,6 +454,9 @@ export function openDogProfile(id) {
       if (pill) { pill.className = `status-pill pill-${m.cls}`; pill.innerHTML = `<i class="ti ${m.icon}"></i> ${escapeHtml(t(m.key))}`; }
     });
 
+    // the sheet reuses the same modal root, so reopen the profile when it closes
+    body.querySelector('[data-act="sheet"]').onclick = () => openDogSheet(id, () => openDogProfile(id));
+
     body.querySelector('[data-act="add-appt"]').onclick = () =>
       openVisitForm(id, () => openDogProfile(id));
 
@@ -491,7 +499,7 @@ function renderTimeline(dog) {
             <i class="ti ti-user"></i> ${escapeHtml(emp ? emp.fullName : '—')}
             ${live ? `<span class="tl-live">${escapeHtml(t('in_progress'))}</span>` : ''}
             ${dur ? `<span class="tl-dur"><i class="ti ti-clock"></i> ${escapeHtml(dur)}</span>` : ''}
-            ${v.price ? `<span class="tl-price">${escapeHtml(v.price)}</span>` : ''}
+            ${v.price ? `<span class="tl-price">${escapeHtml(money(v.price))}</span>` : ''}
           </div>
           <div class="tl-services">${tags || '<span class="text-muted small">—</span>'}</div>
           <div class="d-flex gap-2 mt-2 flex-wrap">

@@ -566,3 +566,101 @@ input, select, textarea, .form-control, .form-select { font-size: 16px !importan
 .d-none { display: none !important; }
 .text-danger { color: var(--danger) !important; }
 .btn:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+
+/* full-width "Print / Share sheet" action inside the dog profile */
+.btn-sheet { width: 100%; margin-bottom: 10px; }
+
+/* ============================================================
+   Printable / shareable documents (dog sheet + visit receipt)
+   The same .sheet markup is used for the in-app preview and for
+   #printRoot, which is the only thing @media print reveals.
+   ============================================================ */
+#printRoot { display: none; }
+
+/* Always paper-like (white/black), independent of the app theme.
+   Typography: a classic serif document stack (Georgia / Times) — the standard,
+   professional look for a printed receipt, and available on every device with
+   no web font to download. Accent colors are taken from the official logo. */
+.sheet {
+  --doc-ink: #16181d;
+  --doc-muted: #6b7280;
+  --doc-line: #dfe3e8;
+  --doc-accent: #2FA9C4;       /* teal from the logo ring */
+  --doc-accent-soft: #eaf6fa;
+
+  background: #ffffff; color: var(--doc-ink);
+  font-family: Georgia, "Times New Roman", Times, "Nimbus Roman", serif;
+  padding: 22px; border-radius: 14px;
+}
+.sheet__head {
+  display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center;
+  border-bottom: 2px solid var(--doc-accent); padding-bottom: 12px; margin-bottom: 16px;
+}
+.sheet__logo { width: 120px; height: auto; display: block; }
+.sheet__kind {
+  font-size: 12px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .12em; color: var(--doc-muted);
+}
+.sheet__name { font-size: 26px; font-weight: 700; line-height: 1.15; text-align: center; }
+.sheet__sub { font-size: 13px; color: var(--doc-muted); margin-top: 3px; text-align: center; }
+
+.sheet__box { margin-top: 16px; border: 1px solid var(--doc-line); border-radius: 8px; overflow: hidden; }
+.sheet-row {
+  display: flex; justify-content: space-between; align-items: baseline; gap: 12px;
+  padding: 10px 13px; border-bottom: 1px solid #eef1f4;
+}
+.sheet-row:last-child { border-bottom: none; }
+.sheet-row__lbl {
+  font-size: 11px; color: var(--doc-muted); font-weight: 700;
+  text-transform: uppercase; letter-spacing: .05em;
+}
+.sheet-row__val { font-size: 15px; font-weight: 700; text-align: right; }
+
+.sheet__notes {
+  margin-top: 14px; padding: 11px 13px;
+  background: var(--doc-accent-soft); border-left: 3px solid var(--doc-accent); border-radius: 6px;
+}
+.sheet__notes p { margin: 4px 0 0; font-size: 14px; line-height: 1.45; white-space: pre-wrap; }
+
+.sheet__total {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-top: 16px; padding: 13px 15px; border-radius: 8px;
+  background: var(--doc-accent-soft); border: 1px solid var(--doc-accent);
+}
+.sheet__total span {
+  font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .1em;
+  color: var(--doc-muted);
+}
+.sheet__total strong { font-size: 24px; color: var(--doc-accent); }
+.sheet__thanks { margin-top: 16px; text-align: center; font-size: 14px; font-style: italic; }
+.sheet__foot {
+  margin-top: 18px; padding-top: 10px; border-top: 1px solid var(--doc-line);
+  text-align: center; font-size: 11px; color: #9ca3af;
+}
+
+/* Photo collage: columns are set inline (1 / 2 / 3 depending on how many). */
+.sheet-collage { display: grid; gap: 6px; margin-top: 14px; }
+.sheet-collage img {
+  width: 100%; aspect-ratio: 1; object-fit: cover;
+  border-radius: 8px; display: block; background: #f0f1f4;
+}
+.sheet-collage--one img { aspect-ratio: auto; max-height: 420px; object-fit: contain; }
+
+/* In-app preview wrapper (the sheet sits on the modal's paper) */
+.sheet-preview .sheet { box-shadow: 0 2px 12px rgba(0,0,0,.10); }
+
+/* ---------------- Print ---------------- */
+@media print {
+  /* Only the print layer is visible; everything else (app, modal, nav) is hidden. */
+  body > *:not(#printRoot) { display: none !important; }
+  #printRoot { display: block !important; }
+
+  html, body { background: #fff !important; margin: 0; padding: 0; }
+  @page { margin: 12mm; }
+
+  /* keep the brand colors on paper instead of washing them out */
+  * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+
+  .sheet { padding: 0; border-radius: 0; box-shadow: none; }
+  .sheet-collage img, .sheet__box, .sheet__total { break-inside: avoid; page-break-inside: avoid; }
+}
