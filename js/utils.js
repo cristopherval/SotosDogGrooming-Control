@@ -225,11 +225,14 @@ export function chooseDialog(title, choices) {
 
 // ---------------- Photo handling ----------------
 //
-// GUARANTEE: every photo we hand back is a JPEG we successfully decoded and
-// re-encoded ourselves. We NEVER upload the original file untouched — doing so
-// once let HEIC/HEIF camera photos (which Android Chrome cannot display) get
-// stored and then show up blank. If we can't turn a file into a real JPEG, we
-// throw so the caller shows an error instead of saving an invisible photo.
+// GOAL: a picked photo must ALWAYS end up saved on the dog's profile, whether it
+// comes from the camera or the gallery, on any phone (Samsung included).
+//
+// Strategy: try to decode + downscale + re-encode it as a JPEG (small, and it
+// displays everywhere). That is only an OPTIMIZATION — if any step fails
+// (HEIC/HEIF the browser can't decode, a huge photo that runs out of memory,
+// etc.) we DON'T drop the photo: we fall back to storing the original file
+// exactly as picked. Worst case it's a bigger upload; it is never lost.
 
 /**
  * Decode a blob with an <img> element. Tried FIRST because mobile browsers
@@ -301,15 +304,18 @@ async function getDrawableSource(file) {
   throw new Error('unsupported image');
 }
 
-/**
- * Turn a picked image File into an uploadable JPEG base64 data-URL.
- * Always returns a freshly re-encoded JPEG (guaranteed to display everywhere),
- * or throws if the file can't be decoded at all.
- */
-export async function readImageResized(file, maxSize = 1600, quality = 0.85) {
-  if (!file) return null;
+/** Read a File as a base64 data-URL (keeps its original type). */
+function fileToDataURL(file) {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(typeof r.result === 'string' ? r.result : null);
+    r.onerror = () => reject(new Error('file read failed'));
+    r.readAsDataURL(file);
+  });
+}
 
-  const source = await getDrawableSource(file); // throws if we truly can't read it
+/** Encode an already-decoded source to a JPEG data-URL at a given max size. */
+function encodeSource(source, maxSize, quality) {
   const sw = source.naturalWidth || source.width;
   const sh = source.naturalHeight || source.height;
   let width = sw, height = sh;
@@ -319,11 +325,49 @@ export async function readImageResized(file, maxSize = 1600, quality = 0.85) {
   const canvas = document.createElement('canvas');
   canvas.width = width || sw; canvas.height = height || sh;
   canvas.getContext('2d').drawImage(source, 0, 0, canvas.width, canvas.height);
-  if (typeof source.close === 'function') source.close(); // free ImageBitmap memory
 
   const dataUrl = canvas.toDataURL('image/jpeg', quality);
-  if (!dataUrl || dataUrl.length < 64) throw new Error('encode failed'); // never store a blank
+  if (!dataUrl || dataUrl.length < 64) throw new Error('encode failed');
   return dataUrl;
+}
+
+/**
+ * Turn a picked image File into an uploadable base64 data-URL.
+ *
+ * The photo is ALWAYS returned (never dropped):
+ *   1. Decode the pixels (with HEIC/HEIF conversion if needed).
+ *   2. Re-encode as a compressed JPEG; if that fails (e.g. a low-memory phone
+ *      choking on a huge image) retry at progressively smaller sizes so it still
+ *      comes out reduced instead of giving up.
+ *   3. If the pixels can't be decoded at all — the only case we can't shrink —
+ *      keep the ORIGINAL file untouched so it is still uploaded.
+ */
+export async function readImageResized(file, maxSize = 1600, quality = 0.85) {
+  if (!file) return null;
+
+  let source;
+  try {
+    source = await getDrawableSource(file);
+  } catch (e) {
+    // Can't read the pixels -> can't recompress. Keep the original so the photo
+    // is still saved no matter what.
+    console.warn('Photo could not be decoded; storing the original instead', e);
+    return fileToDataURL(file);
+  }
+
+  // Decoded OK. Try to compress, shrinking the target size on each failure.
+  const attempts = [[maxSize, quality], [1280, 0.8], [1024, 0.75], [800, 0.7]];
+  try {
+    for (const [size, q] of attempts) {
+      try { return encodeSource(source, size, q); }
+      catch (e) { /* too big for this device — try a smaller size */ }
+    }
+    // Decoded but every encode failed (extremely rare): still upload the original.
+    console.warn('Photo decoded but could not be re-encoded; storing the original');
+    return fileToDataURL(file);
+  } finally {
+    if (source && typeof source.close === 'function') source.close(); // free ImageBitmap
+  }
 }
 
 /** Build a <select> options string with a default placeholder. */

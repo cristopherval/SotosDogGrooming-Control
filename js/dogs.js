@@ -267,16 +267,27 @@ export function openDogForm(id) {
       }
       renderGallery();
 
-      // Read + resize selected files into the photo list.
+      // Read + resize selected files into the photo list. Shows a spinner tile
+      // and blocks Save while photos are still being processed, so a slow phone
+      // never saves the dog before its photos finished loading.
       async function addFiles(input) {
         const files = [...input.files];
         if (!files.length) return;
+        const saveBtn = foot.querySelector('[data-act="save"]');
+        if (saveBtn) saveBtn.disabled = true;
+        gallery.classList.remove('d-none');
+        const loader = document.createElement('div');
+        loader.className = 'photo-thumb photo-thumb--loading';
+        loader.innerHTML = '<span class="photo-spin"></span>';
+        gallery.appendChild(loader);
+
         let failed = 0;
         let lastErr = '';
         for (const file of files) {
           try {
-            const data = await readImageResized(file);
+            const data = await readImageResized(file); // never drops a readable photo
             if (data) photos.list.push(data);
+            else failed++;
           } catch (err) {
             console.warn('Photo could not be processed', file.name, err);
             failed++;
@@ -284,8 +295,9 @@ export function openDogForm(id) {
           }
         }
         input.value = ''; // allow re-selecting the same file later
-        renderGallery();
-        // Surface the real reason so device-specific failures can be diagnosed.
+        if (saveBtn) saveBtn.disabled = false;
+        renderGallery(); // rebuilds the thumbnails (removes the loader tile)
+        // Only fires now for truly unreadable files (e.g. a corrupt/0-byte pick).
         if (failed) toast(t('photo_error') + (lastErr ? ' — ' + lastErr : ''));
       }
       const camInput = $('#dogPhotoCam', body);

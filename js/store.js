@@ -26,6 +26,22 @@ const BUCKET = 'dog-photos';
 const SETTINGS_KEY = 'sotos_settings';
 const OLD_KEY = 'sotos_dog_grooming_v1'; // legacy localStorage blob (pre-Supabase)
 
+// A unique file name. crypto.randomUUID only exists in secure contexts (HTTPS),
+// so we fall back to a timestamp+random name to avoid crashing photo uploads.
+function uniqueName() {
+  try { if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID(); } catch (e) { /* fall through */ }
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+}
+// File extension for a mime type, so non-JPEG photos keep a sensible name.
+function extForMime(m) {
+  m = (m || '').toLowerCase();
+  if (m.includes('png')) return 'png';
+  if (m.includes('webp')) return 'webp';
+  if (m.includes('gif')) return 'gif';
+  if (m.includes('heic') || m.includes('heif')) return 'heic';
+  return 'jpg';
+}
+
 // ---------------- Device settings (localStorage) ----------------
 function loadSettings() {
   const base = { language: 'en', theme: 'light' };
@@ -177,8 +193,9 @@ export const store = {
       if (typeof p !== 'string') continue;
       if (p.startsWith('data:')) {
         const blob = await (await fetch(p)).blob();
-        const path = `${dogId}/${crypto.randomUUID()}.jpg`;
-        const up = await sb.storage.from(BUCKET).upload(path, blob, { contentType: 'image/jpeg', upsert: false });
+        const mime = blob.type || 'image/jpeg';
+        const path = `${dogId}/${uniqueName()}.${extForMime(mime)}`;
+        const up = await sb.storage.from(BUCKET).upload(path, blob, { contentType: mime, upsert: false });
         if (up.error) throw up.error;
         out.push(sb.storage.from(BUCKET).getPublicUrl(path).data.publicUrl);
       } else {

@@ -317,6 +317,14 @@ input, select, textarea, .form-control, .form-select { font-size: 16px !importan
   background: var(--brand-soft);
 }
 .photo-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+/* processing spinner tile while a picked photo is being read/re-encoded */
+.photo-thumb--loading { display: grid; place-items: center; }
+.photo-spin {
+  width: 24px; height: 24px; border-radius: 50%;
+  border: 3px solid var(--brand-soft); border-top-color: var(--brand);
+  animation: photo-spin 0.7s linear infinite;
+}
+@keyframes photo-spin { to { transform: rotate(360deg); } }
 .photo-thumb__del {
   position: absolute; top: 4px; right: 4px; width: 24px; height: 24px;
   border: none; border-radius: 50%; background: rgba(0,0,0,.55); color: #fff;
