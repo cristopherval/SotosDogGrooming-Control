@@ -118,15 +118,20 @@ function employeeToRow(e) {
   };
 }
 
+// A "visit" (walk-in): dog arrives (date + time = arrival), gets a service, and
+// leaves (timeOut = departure). Stored in the `appointments` table for
+// continuity with existing data; `time_out` and `price` are the new columns.
 function rowToAppt(r) {
   return {
     id: r.id, dogId: r.dog_id, date: r.date || '', time: r.time || '',
+    timeOut: r.time_out || '', price: r.price || '',
     employeeId: r.employee_id || '', services: r.services || {}, createdAt: r.created_at || '',
   };
 }
 function apptToRow(a) {
   return {
     id: a.id, dog_id: a.dogId, date: nz(a.date), time: nz(a.time),
+    time_out: nz(a.timeOut), price: nz(a.price),
     employee_id: nz(a.employeeId), services: a.services || {}, created_at: nz(a.createdAt),
   };
 }

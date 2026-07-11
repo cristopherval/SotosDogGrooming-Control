@@ -3,12 +3,12 @@ import { store, normalizePhotos, firstPhoto } from './store.js';
 import { t, getLang } from './i18n.js';
 import {
   $, $$, openModal, closeModal, confirmDialog, toast, escapeHtml, initials,
-  readImageResized, optionsFrom, waLink, smsLink, telLink, fmtDate, fmtTime, todayISO, openLightbox,
+  readImageResized, optionsFrom, waLink, smsLink, telLink, fmtDate, fmtTime, durationLabel, todayISO, openLightbox,
 } from './utils.js';
 import {
   dogVaccineStatus, statusMeta, renderVaccineChecklist, bindVaccineChecklist,
 } from './vaccines.js';
-import { openAppointmentForm, serviceLabels, sendReminder } from './appointments.js';
+import { openVisitForm, serviceLabels, markDeparture } from './appointments.js';
 
 // in-memory filter state for the home view
 const filters = { search: '', breed: '', color: '', sex: '', status: '' };
@@ -405,7 +405,7 @@ export function openDogProfile(id) {
 
       <div class="section-title">
         <i class="ti ti-timeline"></i> ${escapeHtml(t('grooming_history'))}
-        <button class="btn btn-sm btn-primary" data-act="add-appt" style="margin-left:auto"><i class="ti ti-plus"></i> ${escapeHtml(t('add_appointment'))}</button>
+        <button class="btn btn-sm btn-primary" data-act="add-appt" style="margin-left:auto"><i class="ti ti-plus"></i> ${escapeHtml(t('add_visit'))}</button>
       </div>
       <div id="timelineBox">${renderTimeline(dog)}</div>`;
   }
@@ -438,7 +438,7 @@ export function openDogProfile(id) {
     });
 
     body.querySelector('[data-act="add-appt"]').onclick = () =>
-      openAppointmentForm(id, () => openDogProfile(id));
+      openVisitForm(id, () => openDogProfile(id));
 
     // timeline delete + reminder
     bindTimeline(body, dog, () => openDogProfile(id));
@@ -463,26 +463,29 @@ export function openDogProfile(id) {
 }
 
 function renderTimeline(dog) {
-  const appts = store.appointmentsForDog(dog.id);
-  if (!appts.length) return `<p class="text-muted small">${escapeHtml(t('no_history'))}</p>`;
-  const today = todayISO();
-  return `<div class="timeline">` + appts.map((a) => {
-    const emp = a.employeeId ? store.getEmployee(a.employeeId) : null;
-    const tags = serviceLabels(a).map((s) => `<span class="tl-tag">${escapeHtml(s)}</span>`).join('');
-    const upcoming = a.date >= today;
-    const when = fmtDate(a.date) + (a.time ? ` · ${fmtTime(a.time)}` : '');
+  const visits = store.appointmentsForDog(dog.id);
+  if (!visits.length) return `<p class="text-muted small">${escapeHtml(t('no_history'))}</p>`;
+  return `<div class="timeline">` + visits.map((v) => {
+    const emp = v.employeeId ? store.getEmployee(v.employeeId) : null;
+    const tags = serviceLabels(v).map((s) => `<span class="tl-tag">${escapeHtml(s)}</span>`).join('');
+    const span = v.time ? fmtTime(v.time) + (v.timeOut ? ` – ${fmtTime(v.timeOut)}` : '') : '';
+    const dur = durationLabel(v.time, v.timeOut);
+    const live = v.date === todayISO() && !v.timeOut;
     return `
       <div class="tl-item">
-        <div class="tl-date">${when}</div>
+        <div class="tl-date">${fmtDate(v.date)}${span ? ` · ${escapeHtml(span)}` : ''}</div>
         <div class="tl-card">
-          <div class="tl-emp"><i class="ti ti-user"></i> ${escapeHtml(emp ? emp.fullName : '—')}</div>
+          <div class="tl-emp">
+            <i class="ti ti-user"></i> ${escapeHtml(emp ? emp.fullName : '—')}
+            ${live ? `<span class="tl-live">${escapeHtml(t('in_progress'))}</span>` : ''}
+            ${dur ? `<span class="tl-dur"><i class="ti ti-clock"></i> ${escapeHtml(dur)}</span>` : ''}
+            ${v.price ? `<span class="tl-price">${escapeHtml(v.price)}</span>` : ''}
+          </div>
           <div class="tl-services">${tags || '<span class="text-muted small">—</span>'}</div>
           <div class="d-flex gap-2 mt-2 flex-wrap">
-            ${upcoming && dog.phone ? `
-              <button class="btn btn-sm btn-wa" data-remind-wa="${escapeHtml(a.id)}"><i class="ti ti-brand-whatsapp"></i> ${escapeHtml(t('whatsapp'))}</button>
-              <button class="btn btn-sm btn-sms" data-remind-sms="${escapeHtml(a.id)}"><i class="ti ti-message"></i> ${escapeHtml(t('sms'))}</button>` : ''}
-            <button class="btn btn-sm btn-icon btn-outline-primary" data-edit-appt="${escapeHtml(a.id)}" style="margin-left:auto"><i class="ti ti-pencil"></i></button>
-            <button class="btn btn-sm btn-icon text-danger" data-del-appt="${escapeHtml(a.id)}"><i class="ti ti-trash"></i></button>
+            ${live ? `<button class="btn btn-sm btn-checkout" data-checkout-appt="${escapeHtml(v.id)}"><i class="ti ti-logout-2"></i> ${escapeHtml(t('mark_departure'))}</button>` : ''}
+            <button class="btn btn-sm btn-icon btn-outline-primary" data-edit-appt="${escapeHtml(v.id)}" style="margin-left:auto"><i class="ti ti-pencil"></i></button>
+            <button class="btn btn-sm btn-icon text-danger" data-del-appt="${escapeHtml(v.id)}"><i class="ti ti-trash"></i></button>
           </div>
         </div>
       </div>`;
@@ -490,19 +493,15 @@ function renderTimeline(dog) {
 }
 
 function bindTimeline(body, dog, refresh) {
-  const apptById = (id) => store.data.appointments.find((a) => a.id === id);
-  $$('[data-remind-wa]', body).forEach((b) => b.onclick = () => {
-    const appt = apptById(b.getAttribute('data-remind-wa'));
-    if (appt) sendReminder(appt, 'wa');
-  });
-  $$('[data-remind-sms]', body).forEach((b) => b.onclick = () => {
-    const appt = apptById(b.getAttribute('data-remind-sms'));
-    if (appt) sendReminder(appt, 'sms');
+  const visitById = (id) => store.data.appointments.find((a) => a.id === id);
+  $$('[data-checkout-appt]', body).forEach((b) => b.onclick = async () => {
+    const v = visitById(b.getAttribute('data-checkout-appt'));
+    if (v) { await markDeparture(v, refresh); }
   });
   $$('[data-edit-appt]', body).forEach((b) => b.onclick = () =>
-    openAppointmentForm(dog.id, refresh, b.getAttribute('data-edit-appt')));
+    openVisitForm(dog.id, refresh, b.getAttribute('data-edit-appt')));
   $$('[data-del-appt]', body).forEach((b) => b.onclick = async () => {
-    if (await confirmDialog(t('confirm_delete_appt'))) {
+    if (await confirmDialog(t('confirm_delete_visit'))) {
       try { await store.deleteAppointment(b.getAttribute('data-del-appt')); refresh(); }
       catch (e) { /* store toasted */ }
     }

@@ -40,6 +40,27 @@ export function todayISO() {
   return new Date(d.getTime() - off * 60000).toISOString().slice(0, 10);
 }
 
+/** Current local time as "HH:MM" (24h) — used as the default arrival time. */
+export function nowTime() {
+  const d = new Date();
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
+
+/**
+ * Human duration between two "HH:MM" times (same day), e.g. "1h 20m" or "45m".
+ * Returns '' if either time is missing or the range is not positive.
+ */
+export function durationLabel(start, end) {
+  if (!start || !end) return '';
+  const [sh, sm] = start.split(':').map(Number);
+  const [eh, em] = end.split(':').map(Number);
+  if ([sh, sm, eh, em].some(isNaN)) return '';
+  let mins = (eh * 60 + em) - (sh * 60 + sm);
+  if (mins <= 0) return '';
+  const h = Math.floor(mins / 60), m = mins % 60;
+  return h ? `${h}h${m ? ' ' + m + 'm' : ''}` : `${m}m`;
+}
+
 /** Add N months to an ISO date, return ISO. */
 export function addMonths(iso, months) {
   const d = new Date(iso + 'T00:00:00');

@@ -8,8 +8,8 @@ import {
 import { renderEmployees, openEmployeeForm } from './employees.js';
 import { renderSettings, exportBackup, triggerImport, handleImportFile, setLanguage } from './settings.js';
 import { openVaccineForm } from './vaccines.js';
-import { upcomingAppointments, sendReminder, serviceLabels, renderAppointments } from './appointments.js';
-import { fmtDate } from './utils.js';
+import { activeVisits, markDeparture, serviceLabels, renderAppointments, openVisitForm } from './appointments.js';
+import { fmtTime } from './utils.js';
 import { initThemes, applyTheme, resolveTheme } from './themes.js';
 
 const views = {
@@ -30,32 +30,32 @@ function showView(name) {
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
-// ---------------- Upcoming widget (home) ----------------
+// ---------------- "In the shop now" widget (home) ----------------
+// Live walk-in visits (arrived today, not checked out yet) with a quick
+// check-out button. Hidden when nobody is currently in the shop.
 function renderUpcoming() {
   const wrap = $('#upcomingWrap');
   const list = $('#upcomingList');
-  const items = upcomingAppointments().slice(0, 5);
+  const items = activeVisits();
   if (!items.length) { wrap.classList.add('d-none'); list.innerHTML = ''; return; }
   wrap.classList.remove('d-none');
-  list.innerHTML = items.map((a) => {
-    const dog = store.getDog(a.dogId);
+  list.innerHTML = items.map((v) => {
+    const dog = store.getDog(v.dogId);
     if (!dog) return '';
     return `
       <div class="upcoming-item">
         <div class="upcoming-item__info">
           <div class="upcoming-item__name">${escapeHtml(dog.name)}</div>
-          <div class="upcoming-item__date"><i class="ti ti-calendar"></i> ${fmtDate(a.date)} · ${escapeHtml(serviceLabels(a).join(', ') || '—')}</div>
+          <div class="upcoming-item__date"><i class="ti ti-login-2"></i> ${escapeHtml(fmtTime(v.time))} · ${escapeHtml(serviceLabels(v).join(', ') || '—')}</div>
         </div>
-        ${dog.phone ? `
         <div class="upcoming-item__actions">
-          <button class="btn btn-sm btn-wa" data-up-remind="wa" data-id="${escapeHtml(a.id)}"><i class="ti ti-brand-whatsapp"></i></button>
-          <button class="btn btn-sm btn-sms" data-up-remind="sms" data-id="${escapeHtml(a.id)}"><i class="ti ti-message"></i></button>
-        </div>` : ''}
+          <button class="btn btn-sm btn-checkout" data-checkout="${escapeHtml(v.id)}"><i class="ti ti-logout-2"></i></button>
+        </div>
       </div>`;
   }).join('');
-  $$('[data-up-remind]', list).forEach((b) => b.onclick = () => {
-    const appt = store.data.appointments.find((a) => a.id === b.getAttribute('data-id'));
-    if (appt) sendReminder(appt, b.getAttribute('data-up-remind'));
+  $$('[data-checkout]', list).forEach((b) => b.onclick = () => {
+    const v = store.data.appointments.find((a) => a.id === b.getAttribute('data-checkout'));
+    if (v) markDeparture(v, renderUpcoming);
   });
 }
 
@@ -116,6 +116,7 @@ function wireEvents() {
     if (!btn) return;
     switch (btn.getAttribute('data-action')) {
       case 'add-dog': openDogForm(); break;
+      case 'add-visit': openVisitForm(null, () => { renderAppointments(); renderUpcoming(); }); break;
       case 'add-employee': openEmployeeForm(); break;
       case 'add-vaccine': openVaccineForm(); break;
       case 'clear-filters': clearFilters(); break;
