@@ -2,7 +2,7 @@
 import { store, normalizePhotos, firstPhoto } from './store.js';
 import { t, getLang } from './i18n.js';
 import {
-  $, $$, openModal, closeModal, confirmDialog, toast, escapeHtml, initials,
+  $, $$, openModal, closeModal, confirmDialog, chooseDialog, toast, escapeHtml, initials,
   readImageResized, optionsFrom, waLink, smsLink, telLink, fmtDate, fmtTime, durationLabel, todayISO, openLightbox, money,
 } from './utils.js';
 import {
@@ -114,7 +114,7 @@ export function renderDogs() {
 
 function filteredDogs() {
   const q = filters.search.trim().toLowerCase();
-  return store.data.dogs
+  const list = store.data.dogs
     .filter((d) => {
       if (q) {
         const owner = `${d.ownerFirst || ''} ${d.ownerLast || ''}`.toLowerCase();
@@ -125,8 +125,60 @@ function filteredDogs() {
       if (filters.sex && d.sex !== filters.sex) return false;
       if (filters.status && dogVaccineStatus(d) !== filters.status) return false;
       return true;
-    })
-    .sort((a, b) => a.name.localeCompare(b.name));
+    });
+  return sortDogs(list);
+}
+
+// ---------------- Sorting ----------------
+const SORT_MODES = ['az', 'owner', 'added', 'modified', 'visit'];
+
+/** The saved sort mode (device-local), defaulting to alphabetical. */
+function currentSort() {
+  const s = store.data.settings.dogSort;
+  return SORT_MODES.includes(s) ? s : 'az';
+}
+
+/** Creation timestamp embedded in `store.uid()` ids: dog_<time base36>_<rand>. */
+function uidTime(id) {
+  const m = /^[a-z]+_([a-z0-9]+)_/i.exec(id || '');
+  const t = m ? parseInt(m[1], 36) : 0;
+  return isNaN(t) ? 0 : t;
+}
+
+function sortDogs(list) {
+  const mode = currentSort();
+  const byName = (a, b) => a.name.localeCompare(b.name);
+
+  if (mode === 'owner') {
+    const owner = (d) => `${d.ownerFirst || ''} ${d.ownerLast || ''}`.trim().toLowerCase();
+    return list.sort((a, b) => {
+      const ao = owner(a), bo = owner(b);
+      if (!!ao !== !!bo) return ao ? -1 : 1;           // dogs without owner go last
+      return (ao !== bo ? ao.localeCompare(bo) : 0) || byName(a, b);
+    });
+  }
+  if (mode === 'added') {
+    return list.sort((a, b) => uidTime(b.id) - uidTime(a.id) || byName(a, b));
+  }
+  if (mode === 'modified') {
+    // fall back to the creation time for dogs never saved since updated_at existed
+    const mtime = (d) => (d.updatedAt ? (Date.parse(d.updatedAt) || 0) : uidTime(d.id));
+    return list.sort((a, b) => mtime(b) - mtime(a) || byName(a, b));
+  }
+  if (mode === 'visit') {
+    // most recent visit first; dogs that never visited go last
+    const last = {};
+    store.data.appointments.forEach((v) => {
+      const k = `${v.date || ''} ${v.time || ''}`;
+      if (!last[v.dogId] || k > last[v.dogId]) last[v.dogId] = k;
+    });
+    return list.sort((a, b) => {
+      const la = last[a.id] || '', lb = last[b.id] || '';
+      if (la !== lb) return la < lb ? 1 : -1;
+      return byName(a, b);
+    });
+  }
+  return list.sort(byName); // 'az'
 }
 
 /** Populate breed/color filter dropdowns from existing data. */
@@ -145,6 +197,28 @@ export function initDogFilters() {
   $('#filterToggle').addEventListener('click', () => {
     $('#filterPanel').classList.toggle('d-none');
   });
+
+  // sort selector (persisted per device)
+  const sortBtn = $('#sortToggle');
+  if (sortBtn) {
+    const syncSortBtn = () => sortBtn.classList.toggle('is-on', currentSort() !== 'az');
+    syncSortBtn();
+    sortBtn.addEventListener('click', async () => {
+      const cur = currentSort();
+      const opt = (value, label) => ({ value, label: value === cur ? `${label} ✓` : label });
+      const choice = await chooseDialog(t('sort_by'), [
+        opt('az', t('sort_az')),
+        opt('owner', t('sort_owner')),
+        opt('added', t('sort_added')),
+        opt('modified', t('sort_modified')),
+        opt('visit', t('sort_visit')),
+      ]);
+      if (!choice) return;
+      store.setSetting('dogSort', choice);
+      syncSortBtn();
+      renderDogs();
+    });
+  }
 
   ['fBreed', 'fColor', 'fSex', 'fStatus'].forEach((id) => {
     $('#' + id).addEventListener('change', (e) => {

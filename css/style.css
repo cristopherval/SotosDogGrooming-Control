@@ -112,6 +112,8 @@ input, select, textarea, .form-control, .form-select { font-size: 16px !importan
   position: relative; border-radius: 12px;
   background: var(--surface); border: 1px solid var(--border); color: var(--text);
 }
+/* highlighted when a non-default sort is active */
+.btn-filter.is-on { color: var(--brand); border-color: var(--brand); }
 .filter-count {
   position: absolute; top: -6px; right: -6px;
   background: var(--brand); color: #fff; font-size: 10px;

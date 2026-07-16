@@ -108,6 +108,7 @@ function rowToDog(r) {
     combHead: r.comb_head || '', combBody: r.comb_body || '',
     notes: r.notes || '', photos, photo: firstPhoto(photos),
     vaccines: r.vaccines || {},
+    updatedAt: r.updated_at || '', // last modification (for "recently updated" sort)
   };
 }
 function dogToRow(d) {
@@ -118,6 +119,7 @@ function dogToRow(d) {
     blade_head: nz(d.bladeHead), blade_body: nz(d.bladeBody),
     comb_head: nz(d.combHead), comb_body: nz(d.combBody),
     notes: nz(d.notes), photos: normalizePhotos(d.photos), vaccines: d.vaccines || {},
+    updated_at: nz(d.updatedAt),
   };
 }
 
@@ -216,6 +218,7 @@ export const store = {
   // ---- dogs ----
   getDog(id) { return this.data.dogs.find((d) => d.id === id); },
   async upsertDog(dog) {
+    dog.updatedAt = new Date().toISOString(); // any save counts as a modification
     try {
       await this._uploadNewPhotos(dog); // can fail on Storage upload (perms/network)
     } catch (e) {
