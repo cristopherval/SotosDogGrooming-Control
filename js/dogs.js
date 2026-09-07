@@ -2,13 +2,14 @@
 import { store, normalizePhotos, firstPhoto } from './store.js';
 import { t, getLang } from './i18n.js';
 import {
-  $, $$, openModal, closeModal, confirmDialog, toast, escapeHtml, initials,
-  readImageResized, optionsFrom, waLink, smsLink, telLink, fmtDate, fmtTime, todayISO, openLightbox,
+  $, $$, openModal, closeModal, confirmDialog, chooseDialog, toast, escapeHtml, initials,
+  readImageResized, optionsFrom, waLink, smsLink, telLink, fmtDate, fmtTime, durationLabel, todayISO, openLightbox, money,
 } from './utils.js';
 import {
   dogVaccineStatus, statusMeta, renderVaccineChecklist, bindVaccineChecklist,
 } from './vaccines.js';
-import { openAppointmentForm, serviceLabels, sendReminder } from './appointments.js';
+import { openVisitForm, serviceLabels, markDeparture } from './appointments.js';
+import { openDogSheet } from './print.js';
 
 // in-memory filter state for the home view
 const filters = { search: '', breed: '', color: '', sex: '', status: '' };
@@ -44,7 +45,7 @@ const COMB_OPTIONS = [
 ];
 
 /** Human label for a comb size, e.g. 'Red · 1/8"'. */
-function combLabel(size) {
+export function combLabel(size) {
   const c = COMB_OPTIONS.find((o) => o.size === size);
   if (!c) return size;
   return `${getLang() === 'es' ? c.es : c.en} · ${c.size}`;
@@ -113,7 +114,7 @@ export function renderDogs() {
 
 function filteredDogs() {
   const q = filters.search.trim().toLowerCase();
-  return store.data.dogs
+  const list = store.data.dogs
     .filter((d) => {
       if (q) {
         const owner = `${d.ownerFirst || ''} ${d.ownerLast || ''}`.toLowerCase();
@@ -124,8 +125,60 @@ function filteredDogs() {
       if (filters.sex && d.sex !== filters.sex) return false;
       if (filters.status && dogVaccineStatus(d) !== filters.status) return false;
       return true;
-    })
-    .sort((a, b) => a.name.localeCompare(b.name));
+    });
+  return sortDogs(list);
+}
+
+// ---------------- Sorting ----------------
+const SORT_MODES = ['az', 'owner', 'added', 'modified', 'visit'];
+
+/** The saved sort mode (device-local), defaulting to alphabetical. */
+function currentSort() {
+  const s = store.data.settings.dogSort;
+  return SORT_MODES.includes(s) ? s : 'az';
+}
+
+/** Creation timestamp embedded in `store.uid()` ids: dog_<time base36>_<rand>. */
+function uidTime(id) {
+  const m = /^[a-z]+_([a-z0-9]+)_/i.exec(id || '');
+  const t = m ? parseInt(m[1], 36) : 0;
+  return isNaN(t) ? 0 : t;
+}
+
+function sortDogs(list) {
+  const mode = currentSort();
+  const byName = (a, b) => a.name.localeCompare(b.name);
+
+  if (mode === 'owner') {
+    const owner = (d) => `${d.ownerFirst || ''} ${d.ownerLast || ''}`.trim().toLowerCase();
+    return list.sort((a, b) => {
+      const ao = owner(a), bo = owner(b);
+      if (!!ao !== !!bo) return ao ? -1 : 1;           // dogs without owner go last
+      return (ao !== bo ? ao.localeCompare(bo) : 0) || byName(a, b);
+    });
+  }
+  if (mode === 'added') {
+    return list.sort((a, b) => uidTime(b.id) - uidTime(a.id) || byName(a, b));
+  }
+  if (mode === 'modified') {
+    // fall back to the creation time for dogs never saved since updated_at existed
+    const mtime = (d) => (d.updatedAt ? (Date.parse(d.updatedAt) || 0) : uidTime(d.id));
+    return list.sort((a, b) => mtime(b) - mtime(a) || byName(a, b));
+  }
+  if (mode === 'visit') {
+    // most recent visit first; dogs that never visited go last
+    const last = {};
+    store.data.appointments.forEach((v) => {
+      const k = `${v.date || ''} ${v.time || ''}`;
+      if (!last[v.dogId] || k > last[v.dogId]) last[v.dogId] = k;
+    });
+    return list.sort((a, b) => {
+      const la = last[a.id] || '', lb = last[b.id] || '';
+      if (la !== lb) return la < lb ? 1 : -1;
+      return byName(a, b);
+    });
+  }
+  return list.sort(byName); // 'az'
 }
 
 /** Populate breed/color filter dropdowns from existing data. */
@@ -144,6 +197,28 @@ export function initDogFilters() {
   $('#filterToggle').addEventListener('click', () => {
     $('#filterPanel').classList.toggle('d-none');
   });
+
+  // sort selector (persisted per device)
+  const sortBtn = $('#sortToggle');
+  if (sortBtn) {
+    const syncSortBtn = () => sortBtn.classList.toggle('is-on', currentSort() !== 'az');
+    syncSortBtn();
+    sortBtn.addEventListener('click', async () => {
+      const cur = currentSort();
+      const opt = (value, label) => ({ value, label: value === cur ? `${label} ✓` : label });
+      const choice = await chooseDialog(t('sort_by'), [
+        opt('az', t('sort_az')),
+        opt('owner', t('sort_owner')),
+        opt('added', t('sort_added')),
+        opt('modified', t('sort_modified')),
+        opt('visit', t('sort_visit')),
+      ]);
+      if (!choice) return;
+      store.setSetting('dogSort', choice);
+      syncSortBtn();
+      renderDogs();
+    });
+  }
 
   ['fBreed', 'fColor', 'fSex', 'fStatus'].forEach((id) => {
     $('#' + id).addEventListener('change', (e) => {
@@ -267,16 +342,27 @@ export function openDogForm(id) {
       }
       renderGallery();
 
-      // Read + resize selected files into the photo list.
+      // Read + resize selected files into the photo list. Shows a spinner tile
+      // and blocks Save while photos are still being processed, so a slow phone
+      // never saves the dog before its photos finished loading.
       async function addFiles(input) {
         const files = [...input.files];
         if (!files.length) return;
+        const saveBtn = foot.querySelector('[data-act="save"]');
+        if (saveBtn) saveBtn.disabled = true;
+        gallery.classList.remove('d-none');
+        const loader = document.createElement('div');
+        loader.className = 'photo-thumb photo-thumb--loading';
+        loader.innerHTML = '<span class="photo-spin"></span>';
+        gallery.appendChild(loader);
+
         let failed = 0;
         let lastErr = '';
         for (const file of files) {
           try {
-            const data = await readImageResized(file);
+            const data = await readImageResized(file); // never drops a readable photo
             if (data) photos.list.push(data);
+            else failed++;
           } catch (err) {
             console.warn('Photo could not be processed', file.name, err);
             failed++;
@@ -284,8 +370,9 @@ export function openDogForm(id) {
           }
         }
         input.value = ''; // allow re-selecting the same file later
-        renderGallery();
-        // Surface the real reason so device-specific failures can be diagnosed.
+        if (saveBtn) saveBtn.disabled = false;
+        renderGallery(); // rebuilds the thumbnails (removes the loader tile)
+        // Only fires now for truly unreadable files (e.g. a corrupt/0-byte pick).
         if (failed) toast(t('photo_error') + (lastErr ? ' — ' + lastErr : ''));
       }
       const camInput = $('#dogPhotoCam', body);
@@ -382,12 +469,16 @@ export function openDogProfile(id) {
         ${infoBox(t('owner'), owner)}
         ${infoBox(t('birthday'), dog.birthday ? fmtDate(dog.birthday) : '')}
         ${infoBox(t('attended_by'), groomer ? groomer.fullName : '')}
-        ${infoBox(t('price'), dog.price)}
+        ${infoBox(t('price'), money(dog.price))}
         ${infoBox(t('blade_head'), dog.bladeHead)}
         ${infoBox(t('blade_body'), dog.bladeBody)}
         ${infoBox(t('comb_head'), dog.combHead ? combLabel(dog.combHead) : '')}
         ${infoBox(t('comb_body'), dog.combBody ? combLabel(dog.combBody) : '')}
       </div>
+
+      <button class="btn btn-outline-primary btn-sheet" data-act="sheet">
+        <i class="ti ti-printer"></i> ${escapeHtml(t('print_share_sheet'))}
+      </button>
 
       ${photoGallery()}
 
@@ -405,7 +496,7 @@ export function openDogProfile(id) {
 
       <div class="section-title">
         <i class="ti ti-timeline"></i> ${escapeHtml(t('grooming_history'))}
-        <button class="btn btn-sm btn-primary" data-act="add-appt" style="margin-left:auto"><i class="ti ti-plus"></i> ${escapeHtml(t('add_appointment'))}</button>
+        <button class="btn btn-sm btn-primary" data-act="add-appt" style="margin-left:auto"><i class="ti ti-plus"></i> ${escapeHtml(t('add_visit'))}</button>
       </div>
       <div id="timelineBox">${renderTimeline(dog)}</div>`;
   }
@@ -437,8 +528,11 @@ export function openDogProfile(id) {
       if (pill) { pill.className = `status-pill pill-${m.cls}`; pill.innerHTML = `<i class="ti ${m.icon}"></i> ${escapeHtml(t(m.key))}`; }
     });
 
+    // the sheet reuses the same modal root, so reopen the profile when it closes
+    body.querySelector('[data-act="sheet"]').onclick = () => openDogSheet(id, () => openDogProfile(id));
+
     body.querySelector('[data-act="add-appt"]').onclick = () =>
-      openAppointmentForm(id, () => openDogProfile(id));
+      openVisitForm(id, () => openDogProfile(id));
 
     // timeline delete + reminder
     bindTimeline(body, dog, () => openDogProfile(id));
@@ -463,26 +557,29 @@ export function openDogProfile(id) {
 }
 
 function renderTimeline(dog) {
-  const appts = store.appointmentsForDog(dog.id);
-  if (!appts.length) return `<p class="text-muted small">${escapeHtml(t('no_history'))}</p>`;
-  const today = todayISO();
-  return `<div class="timeline">` + appts.map((a) => {
-    const emp = a.employeeId ? store.getEmployee(a.employeeId) : null;
-    const tags = serviceLabels(a).map((s) => `<span class="tl-tag">${escapeHtml(s)}</span>`).join('');
-    const upcoming = a.date >= today;
-    const when = fmtDate(a.date) + (a.time ? ` · ${fmtTime(a.time)}` : '');
+  const visits = store.appointmentsForDog(dog.id);
+  if (!visits.length) return `<p class="text-muted small">${escapeHtml(t('no_history'))}</p>`;
+  return `<div class="timeline">` + visits.map((v) => {
+    const emp = v.employeeId ? store.getEmployee(v.employeeId) : null;
+    const tags = serviceLabels(v).map((s) => `<span class="tl-tag">${escapeHtml(s)}</span>`).join('');
+    const span = v.time ? fmtTime(v.time) + (v.timeOut ? ` – ${fmtTime(v.timeOut)}` : '') : '';
+    const dur = durationLabel(v.time, v.timeOut);
+    const live = v.date === todayISO() && !v.timeOut;
     return `
       <div class="tl-item">
-        <div class="tl-date">${when}</div>
+        <div class="tl-date">${fmtDate(v.date)}${span ? ` · ${escapeHtml(span)}` : ''}</div>
         <div class="tl-card">
-          <div class="tl-emp"><i class="ti ti-user"></i> ${escapeHtml(emp ? emp.fullName : '—')}</div>
+          <div class="tl-emp">
+            <i class="ti ti-user"></i> ${escapeHtml(emp ? emp.fullName : '—')}
+            ${live ? `<span class="tl-live">${escapeHtml(t('in_progress'))}</span>` : ''}
+            ${dur ? `<span class="tl-dur"><i class="ti ti-clock"></i> ${escapeHtml(dur)}</span>` : ''}
+            ${v.price ? `<span class="tl-price">${escapeHtml(money(v.price))}</span>` : ''}
+          </div>
           <div class="tl-services">${tags || '<span class="text-muted small">—</span>'}</div>
           <div class="d-flex gap-2 mt-2 flex-wrap">
-            ${upcoming && dog.phone ? `
-              <button class="btn btn-sm btn-wa" data-remind-wa="${escapeHtml(a.id)}"><i class="ti ti-brand-whatsapp"></i> ${escapeHtml(t('whatsapp'))}</button>
-              <button class="btn btn-sm btn-sms" data-remind-sms="${escapeHtml(a.id)}"><i class="ti ti-message"></i> ${escapeHtml(t('sms'))}</button>` : ''}
-            <button class="btn btn-sm btn-icon btn-outline-primary" data-edit-appt="${escapeHtml(a.id)}" style="margin-left:auto"><i class="ti ti-pencil"></i></button>
-            <button class="btn btn-sm btn-icon text-danger" data-del-appt="${escapeHtml(a.id)}"><i class="ti ti-trash"></i></button>
+            ${live ? `<button class="btn btn-sm btn-checkout" data-checkout-appt="${escapeHtml(v.id)}"><i class="ti ti-logout-2"></i> ${escapeHtml(t('mark_departure'))}</button>` : ''}
+            <button class="btn btn-sm btn-icon btn-outline-primary" data-edit-appt="${escapeHtml(v.id)}" style="margin-left:auto"><i class="ti ti-pencil"></i></button>
+            <button class="btn btn-sm btn-icon text-danger" data-del-appt="${escapeHtml(v.id)}"><i class="ti ti-trash"></i></button>
           </div>
         </div>
       </div>`;
@@ -490,19 +587,15 @@ function renderTimeline(dog) {
 }
 
 function bindTimeline(body, dog, refresh) {
-  const apptById = (id) => store.data.appointments.find((a) => a.id === id);
-  $$('[data-remind-wa]', body).forEach((b) => b.onclick = () => {
-    const appt = apptById(b.getAttribute('data-remind-wa'));
-    if (appt) sendReminder(appt, 'wa');
-  });
-  $$('[data-remind-sms]', body).forEach((b) => b.onclick = () => {
-    const appt = apptById(b.getAttribute('data-remind-sms'));
-    if (appt) sendReminder(appt, 'sms');
+  const visitById = (id) => store.data.appointments.find((a) => a.id === id);
+  $$('[data-checkout-appt]', body).forEach((b) => b.onclick = async () => {
+    const v = visitById(b.getAttribute('data-checkout-appt'));
+    if (v) { await markDeparture(v, refresh); }
   });
   $$('[data-edit-appt]', body).forEach((b) => b.onclick = () =>
-    openAppointmentForm(dog.id, refresh, b.getAttribute('data-edit-appt')));
+    openVisitForm(dog.id, refresh, b.getAttribute('data-edit-appt')));
   $$('[data-del-appt]', body).forEach((b) => b.onclick = async () => {
-    if (await confirmDialog(t('confirm_delete_appt'))) {
+    if (await confirmDialog(t('confirm_delete_visit'))) {
       try { await store.deleteAppointment(b.getAttribute('data-del-appt')); refresh(); }
       catch (e) { /* store toasted */ }
     }

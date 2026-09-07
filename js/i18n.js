@@ -4,17 +4,35 @@ import { store } from './store.js';
 export const STRINGS = {
   en: {
     brand_subtitle: 'Dog Grooming',
-    nav_dogs: 'Dogs', nav_appointments: 'Appointments', nav_employees: 'Employees', nav_settings: 'Settings',
-    no_appointments: 'No appointments yet.',
+    nav_dogs: 'Dogs', nav_appointments: 'Visits', nav_employees: 'Employees', nav_settings: 'Settings',
+    no_appointments: 'No visits yet.',
     appt_today: 'Today', appt_ontime: 'On time', appt_past: 'Past due',
     add_dog: 'Add Dog', add_employee: 'Add Employee', add: 'Add',
     search_placeholder: 'Search dog or owner…',
     all: 'All', f_breed: 'Breed', f_color: 'Color', f_sex: 'Sex', f_status: 'Vaccine Status',
     male: 'Male', female: 'Female', clear_filters: 'Clear filters',
+    sort_by: 'Sort by', sort_az: 'Name (A–Z)', sort_owner: 'Owner (A–Z)',
+    sort_added: 'Recently added', sort_modified: 'Recently updated', sort_visit: 'Last visit',
     st_uptodate: 'Up to Date', st_renewal: 'Needs Renewal', st_missing: 'Missing Vaccines',
     no_dogs: 'No dogs yet. Tap "Add Dog" to start.',
     no_employees: 'No employees yet.',
     upcoming_title: 'Upcoming appointments',
+    in_shop_now: 'In the shop now',
+
+    // visits (walk-in)
+    new_visit: 'New Visit', visit_new: 'New Visit', visit_edit: 'Edit Visit',
+    add_visit: 'Add Visit', no_visits: 'No visits registered yet.',
+    visit_history: 'History', in_progress: 'In progress',
+    dog: 'Dog', choose_dog: 'Select a dog…', required_dog: 'Please select a dog',
+    arrival: 'Arrival', departure: 'Departure', mark_departure: 'Check out',
+    checked_out: 'Departure registered', duration: 'Duration', amount: 'Amount',
+    confirm_delete_visit: 'Delete this visit?', visits_word: 'visits',
+
+    // printable / shareable documents
+    dog_sheet: 'Grooming Sheet', receipt: 'Receipt',
+    print: 'Print', share: 'Share', print_share_sheet: 'Print / Share sheet',
+    total: 'Total', thanks: 'Thank you for your business!',
+    preparing: 'Preparing…', copied: 'Copied to clipboard', share_failed: 'Could not share',
 
     // dog form
     dog_new: 'New Dog', dog_edit: 'Edit Dog',
@@ -59,7 +77,7 @@ export const STRINGS = {
     backup_desc: 'Export your full database or restore from a file.',
     export_backup: 'Export Backup', restore_backup: 'Restore Backup',
     stat_dogs: 'Total Dogs', stat_employees: 'Total Employees',
-    stat_appointments: 'Total Appointments', stat_photos: 'Total Photos',
+    stat_appointments: 'Total Visits', stat_photos: 'Total Photos',
     language: 'Language',
     theme: 'Theme', themes_light: 'Light', themes_dark: 'Dark',
 
@@ -94,17 +112,35 @@ export const STRINGS = {
 
   es: {
     brand_subtitle: 'Estética Canina',
-    nav_dogs: 'Perros', nav_appointments: 'Citas', nav_employees: 'Empleados', nav_settings: 'Ajustes',
-    no_appointments: 'Aún no hay citas.',
+    nav_dogs: 'Perros', nav_appointments: 'Visitas', nav_employees: 'Empleados', nav_settings: 'Ajustes',
+    no_appointments: 'Aún no hay visitas.',
     appt_today: 'Hoy', appt_ontime: 'A tiempo', appt_past: 'Fecha pasada',
     add_dog: 'Agregar Perro', add_employee: 'Agregar Empleado', add: 'Agregar',
     search_placeholder: 'Buscar perro o dueño…',
     all: 'Todos', f_breed: 'Raza', f_color: 'Color', f_sex: 'Sexo', f_status: 'Estado Vacunas',
     male: 'Macho', female: 'Hembra', clear_filters: 'Limpiar filtros',
+    sort_by: 'Ordenar por', sort_az: 'Nombre (A–Z)', sort_owner: 'Dueño (A–Z)',
+    sort_added: 'Agregado recientemente', sort_modified: 'Modificado recientemente', sort_visit: 'Última visita',
     st_uptodate: 'Al día', st_renewal: 'Necesita Renovar', st_missing: 'Faltan Vacunas',
     no_dogs: 'Aún no hay perros. Toca "Agregar Perro" para empezar.',
     no_employees: 'Aún no hay empleados.',
     upcoming_title: 'Próximas citas',
+    in_shop_now: 'En el local ahora',
+
+    // visitas (walk-in)
+    new_visit: 'Nueva Visita', visit_new: 'Nueva Visita', visit_edit: 'Editar Visita',
+    add_visit: 'Registrar Visita', no_visits: 'Aún no hay visitas registradas.',
+    visit_history: 'Historial', in_progress: 'En curso',
+    dog: 'Perro', choose_dog: 'Selecciona un perro…', required_dog: 'Selecciona un perro',
+    arrival: 'Entrada', departure: 'Salida', mark_departure: 'Marcar salida',
+    checked_out: 'Salida registrada', duration: 'Duración', amount: 'Cobro',
+    confirm_delete_visit: '¿Eliminar esta visita?', visits_word: 'visitas',
+
+    // documentos imprimibles / compartibles
+    dog_sheet: 'Ficha del Perro', receipt: 'Recibo',
+    print: 'Imprimir', share: 'Compartir', print_share_sheet: 'Imprimir / Compartir ficha',
+    total: 'Total', thanks: '¡Gracias por su preferencia!',
+    preparing: 'Preparando…', copied: 'Copiado al portapapeles', share_failed: 'No se pudo compartir',
 
     dog_new: 'Nuevo Perro', dog_edit: 'Editar Perro',
     photo_hint: 'Agrega fotos desde la cámara o la galería',
@@ -143,7 +179,7 @@ export const STRINGS = {
     backup_desc: 'Exporta toda tu base de datos o restaura desde un archivo.',
     export_backup: 'Exportar Respaldo', restore_backup: 'Restaurar Respaldo',
     stat_dogs: 'Total Perros', stat_employees: 'Total Empleados',
-    stat_appointments: 'Total Citas', stat_photos: 'Total Fotos',
+    stat_appointments: 'Total Visitas', stat_photos: 'Total Fotos',
     language: 'Idioma',
     theme: 'Tema', themes_light: 'Claros', themes_dark: 'Oscuros',
 

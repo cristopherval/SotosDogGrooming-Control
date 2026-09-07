@@ -26,6 +26,22 @@ const BUCKET = 'dog-photos';
 const SETTINGS_KEY = 'sotos_settings';
 const OLD_KEY = 'sotos_dog_grooming_v1'; // legacy localStorage blob (pre-Supabase)
 
+// A unique file name. crypto.randomUUID only exists in secure contexts (HTTPS),
+// so we fall back to a timestamp+random name to avoid crashing photo uploads.
+function uniqueName() {
+  try { if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID(); } catch (e) { /* fall through */ }
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+}
+// File extension for a mime type, so non-JPEG photos keep a sensible name.
+function extForMime(m) {
+  m = (m || '').toLowerCase();
+  if (m.includes('png')) return 'png';
+  if (m.includes('webp')) return 'webp';
+  if (m.includes('gif')) return 'gif';
+  if (m.includes('heic') || m.includes('heif')) return 'heic';
+  return 'jpg';
+}
+
 // ---------------- Device settings (localStorage) ----------------
 function loadSettings() {
   const base = { language: 'en', theme: 'light' };
@@ -92,6 +108,7 @@ function rowToDog(r) {
     combHead: r.comb_head || '', combBody: r.comb_body || '',
     notes: r.notes || '', photos, photo: firstPhoto(photos),
     vaccines: r.vaccines || {},
+    updatedAt: r.updated_at || '', // last modification (for "recently updated" sort)
   };
 }
 function dogToRow(d) {
@@ -102,6 +119,7 @@ function dogToRow(d) {
     blade_head: nz(d.bladeHead), blade_body: nz(d.bladeBody),
     comb_head: nz(d.combHead), comb_body: nz(d.combBody),
     notes: nz(d.notes), photos: normalizePhotos(d.photos), vaccines: d.vaccines || {},
+    updated_at: nz(d.updatedAt),
   };
 }
 
@@ -118,15 +136,20 @@ function employeeToRow(e) {
   };
 }
 
+// A "visit" (walk-in): dog arrives (date + time = arrival), gets a service, and
+// leaves (timeOut = departure). Stored in the `appointments` table for
+// continuity with existing data; `time_out` and `price` are the new columns.
 function rowToAppt(r) {
   return {
     id: r.id, dogId: r.dog_id, date: r.date || '', time: r.time || '',
+    timeOut: r.time_out || '', price: r.price || '',
     employeeId: r.employee_id || '', services: r.services || {}, createdAt: r.created_at || '',
   };
 }
 function apptToRow(a) {
   return {
     id: a.id, dog_id: a.dogId, date: nz(a.date), time: nz(a.time),
+    time_out: nz(a.timeOut), price: nz(a.price),
     employee_id: nz(a.employeeId), services: a.services || {}, created_at: nz(a.createdAt),
   };
 }
@@ -172,8 +195,9 @@ export const store = {
       if (typeof p !== 'string') continue;
       if (p.startsWith('data:')) {
         const blob = await (await fetch(p)).blob();
-        const path = `${dogId}/${crypto.randomUUID()}.jpg`;
-        const up = await sb.storage.from(BUCKET).upload(path, blob, { contentType: 'image/jpeg', upsert: false });
+        const mime = blob.type || 'image/jpeg';
+        const path = `${dogId}/${uniqueName()}.${extForMime(mime)}`;
+        const up = await sb.storage.from(BUCKET).upload(path, blob, { contentType: mime, upsert: false });
         if (up.error) throw up.error;
         out.push(sb.storage.from(BUCKET).getPublicUrl(path).data.publicUrl);
       } else {
@@ -194,6 +218,7 @@ export const store = {
   // ---- dogs ----
   getDog(id) { return this.data.dogs.find((d) => d.id === id); },
   async upsertDog(dog) {
+    dog.updatedAt = new Date().toISOString(); // any save counts as a modification
     try {
       await this._uploadNewPhotos(dog); // can fail on Storage upload (perms/network)
     } catch (e) {

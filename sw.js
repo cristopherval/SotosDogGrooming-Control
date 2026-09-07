@@ -1,5 +1,5 @@
 // sw.js — minimal offline cache for the app shell
-const CACHE = 'sotos-v22';
+const CACHE = 'sotos-v23';
 const ASSETS = [
   './',
   './index.html',
@@ -16,9 +16,11 @@ const ASSETS = [
   './js/appointments.js',
   './js/vaccines.js',
   './js/settings.js',
+  './js/print.js',
   './vendor/heic2any.min.js',
   './manifest.webmanifest',
   './icons/icon.svg',
+  './icons/logosotos.jpg',
 ];
 
 self.addEventListener('install', (e) => {

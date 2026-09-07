@@ -52,11 +52,15 @@ create table dogs (
   vaccines jsonb default '{}'::jsonb
 );
 
+-- "appointments" now stores walk-in VISITS: time = arrival, time_out = departure,
+-- price = amount charged for that visit.
 create table appointments (
   id text primary key,
   dog_id text references dogs(id) on delete cascade,
   date date,
   time text,
+  time_out text,
+  price text,
   employee_id text references employees(id) on delete set null,
   services jsonb default '{}'::jsonb,
   created_at text
@@ -84,10 +88,13 @@ create policy "auth full access" on vaccine_catalog for all to authenticated usi
 ```
 
 > **Already created the tables in an earlier version?** Don't re-run the block
-> above. Instead, just add the new **price** column (the three-section photos
-> need no change — they reuse the existing `photos` column):
+> above. Instead, just add the new columns. The dog **price** and the visit
+> **time_out** (departure) + **price** (amount charged) columns are all that's
+> new (photos reuse the existing `photos` column):
 > ```sql
-> alter table dogs add column if not exists price text;
+> alter table dogs         add column if not exists price text;
+> alter table appointments add column if not exists time_out text;
+> alter table appointments add column if not exists price text;
 > ```
 
 ## 4. Create the photo storage bucket

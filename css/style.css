@@ -112,6 +112,8 @@ input, select, textarea, .form-control, .form-select { font-size: 16px !importan
   position: relative; border-radius: 12px;
   background: var(--surface); border: 1px solid var(--border); color: var(--text);
 }
+/* highlighted when a non-default sort is active */
+.btn-filter.is-on { color: var(--brand); border-color: var(--brand); }
 .filter-count {
   position: absolute; top: -6px; right: -6px;
   background: var(--brand); color: #fff; font-size: 10px;
@@ -317,6 +319,14 @@ input, select, textarea, .form-control, .form-select { font-size: 16px !importan
   background: var(--brand-soft);
 }
 .photo-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+/* processing spinner tile while a picked photo is being read/re-encoded */
+.photo-thumb--loading { display: grid; place-items: center; }
+.photo-spin {
+  width: 24px; height: 24px; border-radius: 50%;
+  border: 3px solid var(--brand-soft); border-top-color: var(--brand);
+  animation: photo-spin 0.7s linear infinite;
+}
+@keyframes photo-spin { to { transform: rotate(360deg); } }
 .photo-thumb__del {
   position: absolute; top: 4px; right: 4px; width: 24px; height: 24px;
   border: none; border-radius: 50%; background: rgba(0,0,0,.55); color: #fff;
@@ -416,6 +426,76 @@ input, select, textarea, .form-control, .form-select { font-size: 16px !importan
 .appt-row__meta { font-size: 12px; color: var(--text-muted); margin: 2px 0 4px; }
 .appt-row__chevron { color: var(--text-muted); flex-shrink: 0; }
 
+/* ---------------- Visits (walk-in) ---------------- */
+/* "In the shop now" — live visits with a quick check-out */
+.visit-live-wrap {
+  background: rgba(47, 179, 68, .10);
+  border: 1px solid rgba(47, 179, 68, .28);
+  border-radius: var(--radius);
+  padding: 12px 14px; margin-bottom: 14px;
+  display: flex; flex-direction: column; gap: 10px;
+}
+.visit-live__head { display: flex; align-items: center; gap: 8px; font-weight: 700; color: var(--ok); }
+.visit-live {
+  display: flex; flex-direction: column; align-items: stretch; gap: 8px;
+  background: var(--surface); border-radius: 12px; padding: 10px 12px;
+}
+.visit-live__body { min-width: 0; cursor: pointer; }
+.visit-live__top { display: flex; align-items: baseline; gap: 8px; }
+.visit-live__dog { font-weight: 700; }
+.visit-live__in { font-size: 12px; color: var(--text-muted); white-space: nowrap; }
+.visit-live__meta { font-size: 12px; color: var(--text-muted); margin: 2px 0 4px; }
+.visit-live__actions { display: flex; align-items: center; gap: 6px; }
+.visit-live__actions .btn-checkout { margin-right: auto; }  /* checkout left, edit/delete right */
+
+.btn-checkout { background: var(--ok); border-color: var(--ok); color: #fff; flex-shrink: 0; }
+.btn-checkout:hover, .btn-checkout:active { background: #279a3a; border-color: #279a3a; color: #fff; }
+
+.appt-row__actions { display: flex; gap: 6px; flex-shrink: 0; }
+.appt-row [data-dog] { cursor: pointer; }
+
+/* Searchable dog picker (combobox) in the visit form */
+.dog-combo { position: relative; }
+.dog-combo__ico {
+  position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+  color: var(--text-muted); pointer-events: none; z-index: 2;
+}
+.dog-combo__input { padding-left: 38px !important; }
+.dog-combo__list {
+  position: absolute; left: 0; right: 0; top: calc(100% + 4px); z-index: 60;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 12px; box-shadow: var(--shadow);
+  max-height: 244px; overflow-y: auto; padding: 4px;
+}
+.dog-combo__opt {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 1px;
+  width: 100%; text-align: left; background: transparent; border: none;
+  padding: 9px 10px; border-radius: 8px; cursor: pointer; color: var(--text);
+}
+.dog-combo__opt:hover, .dog-combo__opt:active { background: var(--brand-soft); }
+.dog-combo__name { font-weight: 600; font-size: 15px; }
+.dog-combo__owner { font-size: 12px; color: var(--text-muted); }
+.dog-combo__empty { padding: 12px; color: var(--text-muted); font-size: 14px; text-align: center; }
+
+/* History day grouping (neutral, not "past due") */
+.appt-day--log { border-left-color: var(--brand); }
+.appt-day__count {
+  font-size: 12px; font-weight: 700; min-width: 22px; text-align: center;
+  padding: 2px 8px; border-radius: 20px; background: var(--brand-soft); color: var(--brand);
+}
+
+/* per-visit amount + timeline chips */
+.visit-price, .tl-price {
+  font-size: 12px; font-weight: 700; color: var(--ok);
+  background: rgba(47,179,68,.12); padding: 1px 7px; border-radius: 8px;
+}
+.tl-emp { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.tl-live {
+  font-size: 11px; font-weight: 700; color: var(--ok);
+  background: rgba(47,179,68,.14); padding: 1px 8px; border-radius: 10px;
+}
+.tl-dur { font-size: 12px; color: var(--text-muted); display: inline-flex; align-items: center; gap: 3px; }
+
 /* phone row with quick actions */
 .phone-row { display: flex; gap: 8px; align-items: flex-end; }
 .phone-row .field { flex: 1; margin-bottom: 0; }
@@ -488,3 +568,101 @@ input, select, textarea, .form-control, .form-select { font-size: 16px !importan
 .d-none { display: none !important; }
 .text-danger { color: var(--danger) !important; }
 .btn:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+
+/* full-width "Print / Share sheet" action inside the dog profile */
+.btn-sheet { width: 100%; margin-bottom: 10px; }
+
+/* ============================================================
+   Printable / shareable documents (dog sheet + visit receipt)
+   The same .sheet markup is used for the in-app preview and for
+   #printRoot, which is the only thing @media print reveals.
+   ============================================================ */
+#printRoot { display: none; }
+
+/* Always paper-like (white/black), independent of the app theme.
+   Typography: a classic serif document stack (Georgia / Times) — the standard,
+   professional look for a printed receipt, and available on every device with
+   no web font to download. Accent colors are taken from the official logo. */
+.sheet {
+  --doc-ink: #16181d;
+  --doc-muted: #6b7280;
+  --doc-line: #dfe3e8;
+  --doc-accent: #2FA9C4;       /* teal from the logo ring */
+  --doc-accent-soft: #eaf6fa;
+
+  background: #ffffff; color: var(--doc-ink);
+  font-family: Georgia, "Times New Roman", Times, "Nimbus Roman", serif;
+  padding: 22px; border-radius: 14px;
+}
+.sheet__head {
+  display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center;
+  border-bottom: 2px solid var(--doc-accent); padding-bottom: 12px; margin-bottom: 16px;
+}
+.sheet__logo { width: 120px; height: auto; display: block; }
+.sheet__kind {
+  font-size: 12px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .12em; color: var(--doc-muted);
+}
+.sheet__name { font-size: 26px; font-weight: 700; line-height: 1.15; text-align: center; }
+.sheet__sub { font-size: 13px; color: var(--doc-muted); margin-top: 3px; text-align: center; }
+
+.sheet__box { margin-top: 16px; border: 1px solid var(--doc-line); border-radius: 8px; overflow: hidden; }
+.sheet-row {
+  display: flex; justify-content: space-between; align-items: baseline; gap: 12px;
+  padding: 10px 13px; border-bottom: 1px solid #eef1f4;
+}
+.sheet-row:last-child { border-bottom: none; }
+.sheet-row__lbl {
+  font-size: 11px; color: var(--doc-muted); font-weight: 700;
+  text-transform: uppercase; letter-spacing: .05em;
+}
+.sheet-row__val { font-size: 15px; font-weight: 700; text-align: right; }
+
+.sheet__notes {
+  margin-top: 14px; padding: 11px 13px;
+  background: var(--doc-accent-soft); border-left: 3px solid var(--doc-accent); border-radius: 6px;
+}
+.sheet__notes p { margin: 4px 0 0; font-size: 14px; line-height: 1.45; white-space: pre-wrap; }
+
+.sheet__total {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-top: 16px; padding: 13px 15px; border-radius: 8px;
+  background: var(--doc-accent-soft); border: 1px solid var(--doc-accent);
+}
+.sheet__total span {
+  font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .1em;
+  color: var(--doc-muted);
+}
+.sheet__total strong { font-size: 24px; color: var(--doc-accent); }
+.sheet__thanks { margin-top: 16px; text-align: center; font-size: 14px; font-style: italic; }
+.sheet__foot {
+  margin-top: 18px; padding-top: 10px; border-top: 1px solid var(--doc-line);
+  text-align: center; font-size: 11px; color: #9ca3af;
+}
+
+/* Photo collage: columns are set inline (1 / 2 / 3 depending on how many). */
+.sheet-collage { display: grid; gap: 6px; margin-top: 14px; }
+.sheet-collage img {
+  width: 100%; aspect-ratio: 1; object-fit: cover;
+  border-radius: 8px; display: block; background: #f0f1f4;
+}
+.sheet-collage--one img { aspect-ratio: auto; max-height: 420px; object-fit: contain; }
+
+/* In-app preview wrapper (the sheet sits on the modal's paper) */
+.sheet-preview .sheet { box-shadow: 0 2px 12px rgba(0,0,0,.10); }
+
+/* ---------------- Print ---------------- */
+@media print {
+  /* Only the print layer is visible; everything else (app, modal, nav) is hidden. */
+  body > *:not(#printRoot) { display: none !important; }
+  #printRoot { display: block !important; }
+
+  html, body { background: #fff !important; margin: 0; padding: 0; }
+  @page { margin: 12mm; }
+
+  /* keep the brand colors on paper instead of washing them out */
+  * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+
+  .sheet { padding: 0; border-radius: 0; box-shadow: none; }
+  .sheet-collage img, .sheet__box, .sheet__total { break-inside: avoid; page-break-inside: avoid; }
+}
