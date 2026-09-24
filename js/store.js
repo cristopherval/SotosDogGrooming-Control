@@ -108,6 +108,7 @@ function rowToDog(r) {
     combHead: r.comb_head || '', combBody: r.comb_body || '',
     notes: r.notes || '', photos, photo: firstPhoto(photos),
     vaccines: r.vaccines || {},
+    care: r.care || {}, // routine care checkboxes; {} for rows saved before it existed
     updatedAt: r.updated_at || '', // last modification (for "recently updated" sort)
   };
 }
@@ -119,6 +120,7 @@ function dogToRow(d) {
     blade_head: nz(d.bladeHead), blade_body: nz(d.bladeBody),
     comb_head: nz(d.combHead), comb_body: nz(d.combBody),
     notes: nz(d.notes), photos: normalizePhotos(d.photos), vaccines: d.vaccines || {},
+    care: d.care || {},
     updated_at: nz(d.updatedAt),
   };
 }

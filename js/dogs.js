@@ -51,6 +51,26 @@ export function combLabel(size) {
   return `${getLang() === 'es' ? c.es : c.en} · ${c.size}`;
 }
 
+// Routine care this dog normally gets. These are the dog's standing preferences
+// ("Luna always gets her paws shaved"), not what happened on a given visit —
+// the per-visit record is the services checklist in appointments.js, which
+// reuses these same i18n labels.
+//
+// Stored together in the `care` jsonb column (like `vaccines` / `photos`), so
+// adding another checkbox later is a frontend-only change with no migration.
+export const CARE_OPTIONS = [
+  { key: 'paws', i18n: 'svc_paws' },
+  { key: 'teeth', i18n: 'svc_teeth' },
+  { key: 'deshed', i18n: 'svc_deshed' },
+  { key: 'anal', i18n: 'svc_anal' },
+];
+
+/** Labels of the care options turned on for a dog, in CARE_OPTIONS order. */
+export function careLabels(dog) {
+  const care = (dog && dog.care) || {};
+  return CARE_OPTIONS.filter((o) => care[o.key]).map((o) => t(o.i18n));
+}
+
 /** Build <select> options for a comb field, preserving any legacy/custom value. */
 function combOptions(selected = '') {
   let html = `<option value="">${escapeHtml(t('select'))}</option>`;
@@ -315,7 +335,16 @@ export function openDogForm(id) {
           <select id="dCombB" class="form-select">${combOptions(d ? (d.combBody || '') : '')}</select></div>
       </div>
 
-      <div class="field"><label class="form-label">${escapeHtml(t('price'))}</label>
+      <label class="form-label" style="margin-top:6px">${escapeHtml(t('care_specs'))}</label>
+      <div class="services-list" id="dCare">
+        ${CARE_OPTIONS.map((o) => `
+          <label class="service-check">
+            <input type="checkbox" data-care="${o.key}" ${d && d.care && d.care[o.key] ? 'checked' : ''} />
+            <span>${escapeHtml(t(o.i18n))}</span>
+          </label>`).join('')}
+      </div>
+
+      <div class="field" style="margin-top:6px"><label class="form-label">${escapeHtml(t('price'))}</label>
         <input id="dPrice" class="form-control" inputmode="decimal" placeholder="$" value="${d ? escapeHtml(d.price || '') : ''}" /></div>
 
       <div class="field"><label class="form-label">${escapeHtml(t('notes'))}</label>
@@ -400,6 +429,8 @@ export function openDogForm(id) {
           bladeBody: $('#dBladeB', body).value.trim(),
           combHead: $('#dCombH', body).value.trim(),
           combBody: $('#dCombB', body).value.trim(),
+          care: Object.fromEntries(
+            $$('[data-care]', body).map((cb) => [cb.getAttribute('data-care'), cb.checked])),
           price: $('#dPrice', body).value.trim(),
           notes: $('#dNotes', body).value.trim(),
           photos,
@@ -474,6 +505,14 @@ export function openDogProfile(id) {
         ${infoBox(t('blade_body'), dog.bladeBody)}
         ${infoBox(t('comb_head'), dog.combHead ? combLabel(dog.combHead) : '')}
         ${infoBox(t('comb_body'), dog.combBody ? combLabel(dog.combBody) : '')}
+      </div>
+
+      <div class="info-box" style="margin-bottom:10px">
+        <div class="info-box__lbl">${escapeHtml(t('care_specs'))}</div>
+        <div class="tl-services" style="margin-top:6px">
+          ${careLabels(dog).map((l) => `<span class="tl-tag">${escapeHtml(l)}</span>`).join('')
+            || '<span class="text-muted small">—</span>'}
+        </div>
       </div>
 
       <button class="btn btn-outline-primary btn-sheet" data-act="sheet">

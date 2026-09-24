@@ -9,13 +9,19 @@ import {
 import { openDogProfile } from './dogs.js';
 import { openVisitReceipt } from './print.js';
 
-// Service definitions (order 1..5). 'full' is the master toggle.
+// Service definitions. 'full' is the master toggle.
+// New services are appended at the end on purpose: the shop is used to the
+// order of the first five, and the stored keys never change, so old visits keep
+// rendering exactly as before.
 export const SERVICES = [
   { key: 'bath', i18n: 'svc_bath' },
   { key: 'nail', i18n: 'svc_nail' },
   { key: 'anal', i18n: 'svc_anal' },
   { key: 'haircut', i18n: 'svc_haircut' },
   { key: 'bathdry', i18n: 'svc_bathdry' },
+  { key: 'paws', i18n: 'svc_paws' },
+  { key: 'teeth', i18n: 'svc_teeth' },
+  { key: 'deshed', i18n: 'svc_deshed' },
 ];
 
 export function serviceLabels(visit) {

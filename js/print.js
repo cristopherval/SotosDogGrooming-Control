@@ -8,7 +8,7 @@ import {
   $, openModal, closeModal, escapeHtml, toast,
   fmtDate, fmtTime, todayISO, durationLabel, waLink, money,
 } from './utils.js';
-import { combLabel } from './dogs.js';
+import { combLabel, careLabels } from './dogs.js';
 import { serviceLabels } from './appointments.js';
 
 const SHOP = "Soto's Dog Grooming";
@@ -131,6 +131,7 @@ function dogSheetHTML(dog, photos) {
         ${row(t('blade_body'), dog.bladeBody)}
         ${row(t('comb_head'), dog.combHead ? combLabel(dog.combHead) : '')}
         ${row(t('comb_body'), dog.combBody ? combLabel(dog.combBody) : '')}
+        ${row(t('care_specs'), careLabels(dog).join(', '))}
       </div>
 
       ${dog.notes ? `
@@ -157,6 +158,8 @@ function dogSheetText(dog) {
   if (dog.bladeBody) lines.push(`${t('blade_body')}: ${dog.bladeBody}`);
   if (dog.combHead) lines.push(`${t('comb_head')}: ${combLabel(dog.combHead)}`);
   if (dog.combBody) lines.push(`${t('comb_body')}: ${combLabel(dog.combBody)}`);
+  const care = careLabels(dog);
+  if (care.length) lines.push(`${t('care_specs')}: ${care.join(', ')}`);
   if (dog.notes) lines.push(`${t('notes')}: ${dog.notes}`);
   return lines.join('\n');
 }

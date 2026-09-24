@@ -49,7 +49,8 @@ create table dogs (
   blade_head text, blade_body text, comb_head text, comb_body text,
   notes text, price text,
   photos jsonb default '{}'::jsonb,
-  vaccines jsonb default '{}'::jsonb
+  vaccines jsonb default '{}'::jsonb,
+  care jsonb default '{}'::jsonb
 );
 
 -- "appointments" now stores walk-in VISITS: time = arrival, time_out = departure,
@@ -93,9 +94,32 @@ create policy "auth full access" on vaccine_catalog for all to authenticated usi
 > new (photos reuse the existing `photos` column):
 > ```sql
 > alter table dogs         add column if not exists price text;
+> alter table dogs         add column if not exists care jsonb default '{}'::jsonb;
 > alter table appointments add column if not exists time_out text;
 > alter table appointments add column if not exists price text;
 > ```
+
+### Routine Care checkboxes (`care` column)
+
+The dog profile has a **Routine Care** section (paw shaving, teeth brushing,
+deshedding, anal gland expression). It needs the `care` column listed above.
+
+**Run that `alter table` BEFORE publishing the app update.** The order matters:
+
+- **SQL first, then deploy** — correct. Adding the column changes nothing for
+  the version the shop is using right now: the old code never reads or writes
+  `care`, so everything keeps working normally while you deploy.
+- **Deploy first, then SQL** — breaks saving. The new code sends a `care` field
+  the table doesn't have yet, Supabase rejects the whole row, and **no dog can
+  be saved** until the SQL runs.
+
+The `alter table` is safe for existing data: it only adds an empty column. It
+never reads, changes or deletes any dog, photo or appointment. Dogs that already
+exist simply start with all the boxes unchecked.
+
+> Why one `jsonb` column instead of one column per checkbox: same reason
+> `vaccines` and `photos` are jsonb. Adding another checkbox later then becomes
+> a change in the app only — no more SQL, ever.
 
 ## 4. Create the photo storage bucket
 

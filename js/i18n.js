@@ -47,7 +47,7 @@ export const STRINGS = {
     phone: 'Phone Number', grooming_specs: 'Blades', attended_by: 'Attended by',
     blade_head: 'Blade on Head', blade_body: 'Blade on Body', notes: 'Notes',
     comb_specs: 'Combs', comb_head: 'Comb on Head', comb_body: 'Comb on Body',
-    select: 'Select…',
+    care_specs: 'Routine Care', select: 'Select…',
 
     // profile
     edit: 'Edit', delete: 'Delete', cancel: 'Cancel', save: 'Save', close: 'Close',
@@ -66,6 +66,7 @@ export const STRINGS = {
     services: 'Services', full_service: 'Full Service',
     svc_bath: 'Bath', svc_nail: 'Nail Clipping', svc_anal: 'Anal Gland Expression',
     svc_haircut: 'Haircut', svc_bathdry: 'Bath & Dry',
+    svc_paws: 'Paw Shaving', svc_teeth: 'Teeth Brushing', svc_deshed: 'Deshedding',
     no_active_emp: 'No active employees — add one first.',
 
     // vaccine catalog
@@ -154,7 +155,7 @@ export const STRINGS = {
     phone: 'Teléfono', grooming_specs: 'Cuchillas', attended_by: 'Atendido por',
     blade_head: 'Cuchilla en Cabeza', blade_body: 'Cuchilla en Cuerpo', notes: 'Notas',
     comb_specs: 'Peines (Combs)', comb_head: 'Comb en Cabeza', comb_body: 'Comb en Cuerpo',
-    select: 'Seleccionar…',
+    care_specs: 'Cuidados de Rutina', select: 'Seleccionar…',
 
     edit: 'Editar', delete: 'Eliminar', cancel: 'Cancelar', save: 'Guardar', close: 'Cerrar',
     owner: 'Dueño', vaccines: 'Vacunas', grooming_history: 'Historial de Cortes',
@@ -170,6 +171,7 @@ export const STRINGS = {
     services: 'Servicios', full_service: 'Servicio Completo',
     svc_bath: 'Baño', svc_nail: 'Corte de Uñas', svc_anal: 'Glándulas Anales',
     svc_haircut: 'Corte de Pelo', svc_bathdry: 'Baño y Secado',
+    svc_paws: 'Patas Rasuradas', svc_teeth: 'Cepillado de Dientes', svc_deshed: 'Deshedding',
     no_active_emp: 'No hay empleados activos — agrega uno primero.',
 
     vaccine_catalog: 'Catálogo de Vacunas', vax_new: 'Nueva Vacuna', vax_name: 'Nombre de Vacuna',
