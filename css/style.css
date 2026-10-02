@@ -149,7 +149,15 @@ input, select, textarea, .form-control, .form-select { font-size: 16px !importan
 .dog-card__body { flex: 1; min-width: 0; }
 .dog-card__name { font-weight: 700; font-size: 16px; display: flex; align-items: center; gap: 6px; }
 .dog-card__sub { color: var(--text-muted); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.dog-card__owner { color: var(--text-muted); font-size: 12px; margin-top: 2px; }
+/* Truncate rather than overflow: with more columns on a wide screen each card
+   is narrower, and owner names like "Jennifer Trackeray" would spill out. */
+.dog-card__owner {
+  color: var(--text-muted); font-size: 12px; margin-top: 2px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.dog-card__name > span:not(.status-dot):not(.mini-badge) {
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
 
 /* status dot */
 .status-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
@@ -650,6 +658,40 @@ input, select, textarea, .form-control, .form-select { font-size: 16px !importan
 
 /* In-app preview wrapper (the sheet sits on the modal's paper) */
 .sheet-preview .sheet { box-shadow: 0 2px 12px rgba(0,0,0,.10); }
+
+/* ---------------- Desktop ----------------
+   The app is mobile-first: the shell is capped at 760px because it lives on
+   the phone in the groomer's pocket. On a computer that wastes most of the
+   screen and leaves the dog list stuck at two columns, so from 1024px up the
+   shell widens and the card grids fill it with as many columns as fit.
+   Nothing below 1024px changes, so the phone and the tablet are untouched. */
+@media (min-width: 1024px) {
+  .app-header__inner,
+  .app-main { max-width: 1240px; }
+
+  /* As many cards per row as fit, instead of a hard two. 270px is the
+     narrowest a dog card stays comfortable at; it lands on 4 columns at the
+     common 1366px laptop width and 5 on a full-HD monitor. */
+  .card-grid { grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); }
+
+  /* With the extra width these read better as one row than as a 2x2 block. */
+  .filter-grid { grid-template-columns: repeat(4, 1fr); }
+  .stats-grid { grid-template-columns: repeat(4, 1fr); }
+
+  /* Stop the search box from stretching across the whole window. */
+  .search-bar { max-width: 760px; }
+
+  /* These two views are vertical lists and gain nothing from the extra
+     width — a settings card or a visit row a metre wide just looks sparse.
+     Keep them in a comfortable reading column. */
+  .view[data-view="settings"],
+  .view[data-view="appointments"] { max-width: 860px; margin-inline: auto; }
+}
+
+@media (min-width: 1500px) {
+  .app-header__inner,
+  .app-main { max-width: 1520px; }
+}
 
 /* ---------------- Print ---------------- */
 @media print {
