@@ -18,7 +18,6 @@ import { t } from './i18n.js';
 import { $, $$, escapeHtml, fmtDate } from './utils.js';
 import { CARE_OPTIONS, careLabels, combLabel } from './dogs.js';
 
-const LOGO = 'icons/logosotos.jpg';
 // Cut-out shot of three dogs (real transparency, so it sits straight on the
 // background with no photo box around it).
 const HERO = 'img/welcome-dogs.webp';
@@ -47,23 +46,48 @@ function photoOf(dog) {
 
 function root() { return $('#kioskRoot'); }
 
-/** The soap bubbles drifting up behind everything — the logo is a bubble bath. */
-function bubblesHTML(count = 14) {
-  let out = '';
-  for (let i = 0; i < count; i++) {
-    const size = 22 + Math.random() * 78;          // px
-    const left = Math.random() * 100;              // %
-    const dur = 13 + Math.random() * 16;           // s
-    const delay = -Math.random() * 25;             // s (negative = already rising)
-    const drift = (Math.random() * 120 - 60).toFixed(0); // px sideways
-    out += `<span class="kiosk-bubble" style="
-      width:${size.toFixed(0)}px;height:${size.toFixed(0)}px;
-      left:${left.toFixed(1)}%;
-      animation-duration:${dur.toFixed(1)}s;
-      animation-delay:${delay.toFixed(1)}s;
-      --drift:${drift}px;"></span>`;
+// What drifts up behind the welcome screen. Mostly soap bubbles (the logo is
+// a dog in a bubble bath), with the odd bone or ball mixed in.
+const TOYS = ['kiosk-toy--bone', 'kiosk-toy--teal', 'kiosk-toy--pink', 'kiosk-toy--tennis'];
+
+const rand = (min, max) => min + Math.random() * (max - min);
+
+/** One floating thing: a bubble, or a toy every so often. */
+function floaty(isToy) {
+  const cls = isToy
+    ? `kiosk-float kiosk-toy ${TOYS[Math.floor(Math.random() * TOYS.length)]}`
+    : 'kiosk-float kiosk-bubble';
+  // Toys read as heavier, so they run a little bigger and slower than bubbles.
+  const size = isToy ? rand(34, 72) : rand(20, 92);
+  const dur = isToy ? rand(20, 34) : rand(13, 29);
+  const style = [
+    `width:${size.toFixed(0)}px`,
+    // A bubble is a circle; a toy gets its height from its aspect-ratio.
+    isToy ? '' : `height:${size.toFixed(0)}px`,
+    `left:${rand(0, 100).toFixed(1)}%`,
+    `animation-duration:${dur.toFixed(1)}s`,
+    // Negative delay: they are already mid-rise on the first paint, so the
+    // screen never starts empty and then fills up.
+    `animation-delay:${(-rand(0, 30)).toFixed(1)}s`,
+    `--drift:${rand(-60, 60).toFixed(0)}px`,
+    isToy ? `--spin-from:${rand(-30, 0).toFixed(0)}deg` : '',
+    isToy ? `--spin-to:${rand(10, 40).toFixed(0)}deg` : '',
+  ].filter(Boolean).join(';');
+  return `<span class="${cls}" style="${style}"></span>`;
+}
+
+/** The whole backdrop: bubbles with toys sprinkled through them. */
+function floatiesHTML(bubbles = 15, toys = 6) {
+  const items = [];
+  for (let i = 0; i < bubbles; i++) items.push(floaty(false));
+  for (let i = 0; i < toys; i++) items.push(floaty(true));
+  // Interleave so the toys aren't all stacked at the end of the DOM order
+  // (which also keeps the :nth-child(5n) pink bubbles spread out).
+  for (let i = items.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [items[i], items[j]] = [items[j], items[i]];
   }
-  return out;
+  return items.join('');
 }
 
 /**
@@ -75,7 +99,7 @@ function buildShell() {
   const el = root();
   if ($('#kioskScreen', el)) return; // already built
   el.innerHTML = `
-    <div class="kiosk-bg" aria-hidden="true">${bubblesHTML()}</div>
+    <div class="kiosk-bg" aria-hidden="true">${floatiesHTML()}</div>
     <button class="kiosk-exit" id="kioskExit" aria-hidden="true" tabindex="-1"></button>
     <div id="kioskScreen" style="display:contents"></div>`;
   wireExit();
@@ -105,10 +129,10 @@ export function renderWelcome() {
   // CSS stacks the same markup instead.
   screen(`
     <div class="kiosk__screen kiosk-centred kiosk-welcome">
+      <div class="kiosk-frame">
       <div class="kiosk-split">
 
         <div class="kiosk-split__visual">
-          <img class="kiosk-logo" src="${LOGO}" alt="Soto's Dog Grooming" />
           <img class="kiosk-hero" src="${HERO}" alt="" />
         </div>
 
@@ -134,6 +158,7 @@ export function renderWelcome() {
         </div>
 
       </div>
+      </div>
     </div>`, (el) => {
     // NOTE: these must be wrapped, not passed straight as the handler.
     // `onclick = renderSearch` would hand the click event to renderSearch as
@@ -141,10 +166,11 @@ export function renderWelcome() {
     $('#kNew', el).onclick = () => renderForm();
     $('#kFind', el).onclick = () => renderSearch();
 
-    // Three ways for staff to get out, all of them behind the PIN:
-    // the visible button, three taps on the logo, and the hidden corner.
+    // Three ways for staff to get out, all of them behind the PIN: the
+    // visible button, three taps on the photo, and the hidden corner.
+    // (The taps used to be on the logo, which this screen no longer shows.)
     $('#kExit', el).onclick = () => openPinPad();
-    wireTripleTap($('.kiosk-logo', el), openPinPad);
+    wireTripleTap($('.kiosk-hero', el), openPinPad);
   });
 }
 

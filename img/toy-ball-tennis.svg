@@ -1,0 +1,20 @@
+<!-- Tennis ball, the one every dog knows. Drifts up behind the welcome screen. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="40" height="40">
+  <defs>
+    <radialGradient id="tennis" cx=".34" cy=".28" r=".85">
+      <stop offset="0" stop-color="#EAF77E"/>
+      <stop offset=".55" stop-color="#CBE22F"/>
+      <stop offset="1" stop-color="#9BAE12"/>
+    </radialGradient>
+  </defs>
+  <circle cx="20" cy="20" r="19" fill="url(#tennis)"/>
+  <!-- The two classic seams, bulging towards the middle. Their end points sit
+       just inside the circle, so no clipping is needed and the silhouette
+       stays perfectly round — seams drawn out at the edge flatten the sides. -->
+  <g fill="none" stroke="#fff" stroke-width="2.3" stroke-linecap="round" opacity=".9">
+    <path d="M5.5 9.5C15 15 15 25 5.5 30.5"/>
+    <path d="M34.5 9.5C25 15 25 25 34.5 30.5"/>
+  </g>
+  <ellipse cx="13.5" cy="11" rx="5.6" ry="3.9" fill="#fff" opacity=".5"
+           transform="rotate(-28 13.5 11)"/>
+</svg>

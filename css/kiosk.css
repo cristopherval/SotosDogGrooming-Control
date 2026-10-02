@@ -59,30 +59,93 @@ body.kiosk-on { overflow: hidden; }
   z-index: 0;
 }
 
-.kiosk-bubble {
+/* Everything that drifts upward shares this. */
+.kiosk-float {
   position: absolute;
-  bottom: -18vmin;
-  border-radius: 50%;
-  background:
-    radial-gradient(circle at 30% 28%, rgba(255, 255, 255, .95) 0 12%, rgba(255, 255, 255, .3) 22%, transparent 44%),
-    radial-gradient(circle at 70% 75%, rgba(255, 255, 255, .4) 0 10%, transparent 30%);
-  border: 1.5px solid rgba(127, 204, 232, .5);
-  box-shadow: inset 0 0 16px rgba(255, 255, 255, .8), 0 2px 12px rgba(46, 158, 196, .1);
+  bottom: -20vmin;
   opacity: 0;
   animation: kiosk-rise linear infinite;
   will-change: transform, opacity;
 }
-/* A rare pink one, so the accent colour shows up in the motion too. */
-.kiosk-bubble:nth-child(5n) {
-  border-color: rgba(236, 91, 152, .4);
-  box-shadow: inset 0 0 16px rgba(255, 255, 255, .8), 0 2px 12px rgba(236, 91, 152, .12);
-}
 
 @keyframes kiosk-rise {
   0%   { transform: translateY(0) translateX(0) scale(.85); opacity: 0; }
-  14%  { opacity: .6; }
-  86%  { opacity: .45; }
-  100% { transform: translateY(-118vh) translateX(var(--drift, 14px)) scale(1.06); opacity: 0; }
+  14%  { opacity: .62; }
+  86%  { opacity: .5; }
+  100% { transform: translateY(-122vh) translateX(var(--drift, 14px)) scale(1.06); opacity: 0; }
+}
+
+/* ---- Soap bubbles: glassy, with a real specular highlight ----
+   A bubble reads as 3D from three things, all of them here: a tiny hard
+   highlight where the light source is, a soft bounce light on the opposite
+   side, and a thin iridescent film at the rim with nothing in the middle
+   (you can see through a bubble). */
+.kiosk-bubble {
+  border-radius: 50%;
+  background:
+    /* 1. hard specular dot — the actual reflection of the light */
+    radial-gradient(circle at 29% 25%, rgba(255, 255, 255, 1) 0 5%, rgba(255, 255, 255, 0) 13%),
+    /* 2. soft glow around it */
+    radial-gradient(circle at 33% 29%, rgba(255, 255, 255, .72) 0 13%, rgba(255, 255, 255, 0) 38%),
+    /* 3. bounce light coming back off the lower-right edge */
+    radial-gradient(circle at 71% 76%, rgba(255, 255, 255, .5) 0 7%, rgba(255, 255, 255, 0) 25%),
+    /* 4. the film itself: clear in the middle, denser towards the rim */
+    radial-gradient(circle at 50% 50%,
+      rgba(255, 255, 255, 0) 55%,
+      rgba(255, 255, 255, .22) 80%,
+      rgba(255, 255, 255, .4) 93%,
+      rgba(255, 255, 255, .12) 100%);
+  box-shadow:
+    inset -5px -7px 16px rgba(46, 158, 196, .22),  /* shaded far edge = volume */
+    inset 4px 5px 14px rgba(255, 255, 255, .55),
+    0 3px 14px rgba(46, 158, 196, .14);
+}
+
+/* The oil-slick sheen on the film. A conic gradient masked down to a ring,
+   so it only tints the rim and leaves the middle see-through. */
+.kiosk-bubble::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: conic-gradient(from 200deg,
+    rgba(255, 196, 228, .55), rgba(186, 230, 255, .5), rgba(198, 255, 228, .45),
+    rgba(255, 246, 193, .5), rgba(255, 196, 228, .55));
+  -webkit-mask: radial-gradient(circle, transparent 56%, #000 76%, #000 100%);
+  mask: radial-gradient(circle, transparent 56%, #000 76%, #000 100%);
+  /* No blend mode on purpose: `screen` over this near-white background would
+     wash the sheen out to plain white and lose the effect entirely. */
+}
+
+/* A rare pink-tinted one, so the accent colour shows up in the motion too. */
+.kiosk-bubble:nth-child(5n) {
+  box-shadow:
+    inset -5px -7px 16px rgba(236, 91, 152, .2),
+    inset 4px 5px 14px rgba(255, 255, 255, .55),
+    0 3px 14px rgba(236, 91, 152, .14);
+}
+
+/* ---- Bones and balls ----
+   Same drift, plus a slow tumble so they don't look pasted on. */
+.kiosk-toy {
+  aspect-ratio: 1;           /* balls are square; the bone overrides this */
+  background-repeat: no-repeat;
+  background-size: contain;
+  background-position: center;
+  animation-name: kiosk-rise, kiosk-tumble;
+  animation-timing-function: linear, ease-in-out;
+  animation-iteration-count: infinite, infinite;
+  filter: drop-shadow(0 4px 8px rgba(27, 110, 142, .2));
+}
+/* The bone is wider than it is tall; the balls are square. */
+.kiosk-toy--bone   { background-image: url('../img/toy-bone.svg'); aspect-ratio: 64 / 36; }
+.kiosk-toy--teal   { background-image: url('../img/toy-ball-teal.svg'); }
+.kiosk-toy--pink   { background-image: url('../img/toy-ball-pink.svg'); }
+.kiosk-toy--tennis { background-image: url('../img/toy-ball-tennis.svg'); }
+
+@keyframes kiosk-tumble {
+  0%   { rotate: var(--spin-from, -18deg); }
+  100% { rotate: var(--spin-to, 20deg); }
 }
 
 /* ---------------- Screens ---------------- */
@@ -122,21 +185,6 @@ body.kiosk-on { overflow: hidden; }
 
 .kiosk-welcome { gap: clamp(6px, 1.5vmin, 16px); }
 
-.kiosk-logo {
-  width: clamp(84px, 15vmin, 150px);
-  height: clamp(84px, 15vmin, 150px);
-  border-radius: 50%;
-  object-fit: cover;
-  background: var(--k-white);
-  border: 4px solid var(--k-white);
-  box-shadow: 0 10px 30px rgba(27, 110, 142, .22), 0 0 0 3px rgba(127, 204, 232, .45);
-  animation: kiosk-bob 5s ease-in-out infinite;
-}
-@keyframes kiosk-bob {
-  0%, 100% { transform: translateY(0) rotate(-1deg); }
-  50%      { transform: translateY(-8px) rotate(1deg); }
-}
-
 .kiosk-welcome__hi {
   font-size: clamp(13px, 2vmin, 20px);
   color: var(--k-teal-deep);
@@ -163,6 +211,24 @@ body.kiosk-on { overflow: hidden; }
   color: var(--k-muted);
   max-width: 36ch;
   margin: 0;
+}
+
+/* ---- The frame ----
+   The welcome content sits on a card floating over the background, the way a
+   modal does, so the bubbles and toys drift around and behind it. The card is
+   slightly translucent and blurs what passes underneath, which keeps the
+   movement visible without the text ever losing contrast. */
+.kiosk-frame {
+  width: 100%;
+  padding: clamp(18px, 3.2vmin, 46px);
+  border-radius: clamp(22px, 3vmin, 40px);
+  background: rgba(255, 255, 255, .8);
+  -webkit-backdrop-filter: blur(16px) saturate(118%);
+  backdrop-filter: blur(16px) saturate(118%);
+  border: 1px solid rgba(255, 255, 255, .95);
+  box-shadow:
+    0 28px 64px rgba(27, 110, 142, .17),
+    0 4px 14px rgba(27, 110, 142, .07);
 }
 
 /* ---- The split: brand on one half, the two choices on the other ---- */
@@ -216,16 +282,12 @@ body.kiosk-on { overflow: hidden; }
     text-align: left;
   }
 
-  /* The photo is capped by height, never by width — it is a tall portrait and
-     its half always has width to spare. So the height cap is what decides how
-     big the dogs look. 76vh is the most that still leaves room for the logo
-     above it on a short landscape tablet; the 800px ceiling stops it from
-     getting silly on a very tall monitor. */
-  .kiosk-hero { max-height: min(76vh, 800px); }
-
-  /* Smaller logo here so that height goes to the dogs instead. The shop name
-     is spelled out in large type on the other half anyway. */
-  .kiosk-logo { width: clamp(72px, 9vmin, 110px); height: clamp(72px, 9vmin, 110px); }
+  /* With the logo gone, the photo owns its whole half: it grows until either
+     the half's width or the screen height runs out, whichever comes first.
+     On a wide monitor width is now the limit, which is exactly what we want —
+     the dogs fill their side. The cap allows for the frame's padding on top
+     of the screen's own, so nothing ever gets clipped. */
+  .kiosk-hero { max-height: min(78vh, 900px); }
 
   /* Each half is narrower than the full screen, so the choices stack. */
   .kiosk-choices { flex-direction: column; max-width: none; }
@@ -233,8 +295,7 @@ body.kiosk-on { overflow: hidden; }
 
 /* A short landscape tablet: give the photo less height so nothing clips. */
 @media (max-height: 700px) {
-  .kiosk-logo { width: 78px; height: 78px; }
-  .kiosk-hero { max-height: 54vh; }
+  .kiosk-hero { max-height: 76vh; }
 }
 @media (max-height: 560px) {
   .kiosk-welcome__tagline { display: none; }
@@ -708,7 +769,6 @@ body.kiosk-on { overflow: hidden; }
 /* Someone who asked for less motion gets a still, but still colourful, page. */
 @media (prefers-reduced-motion: reduce) {
   .kiosk-hero,
-  .kiosk-logo,
   .kiosk-thanks__ico { animation: none; }
-  .kiosk-bubble { display: none; }
+  .kiosk-float { display: none; }
 }

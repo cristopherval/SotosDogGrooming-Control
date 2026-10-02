@@ -1,0 +1,19 @@
+<!-- Rubber ball in the logo's blue, drifting up behind the welcome screen. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="40" height="40">
+  <defs>
+    <radialGradient id="teal" cx=".34" cy=".28" r=".85">
+      <stop offset="0" stop-color="#A8E2F4"/>
+      <stop offset=".55" stop-color="#49AFD0"/>
+      <stop offset="1" stop-color="#1B6E8E"/>
+    </radialGradient>
+    <clipPath id="tealClip"><circle cx="20" cy="20" r="19"/></clipPath>
+  </defs>
+  <circle cx="20" cy="20" r="19" fill="url(#teal)"/>
+  <!-- A band across the middle, curved so it follows the sphere. Clipped to
+       the ball so it can run edge to edge without poking out. -->
+  <path d="M-2 16c13 5 31 5 44 0" clip-path="url(#tealClip)" fill="none"
+        stroke="#fff" stroke-width="3" opacity=".8"/>
+  <!-- specular highlight: this is what makes it read as a sphere -->
+  <ellipse cx="13.5" cy="11" rx="5.6" ry="3.9" fill="#fff" opacity=".6"
+           transform="rotate(-28 13.5 11)"/>
+</svg>

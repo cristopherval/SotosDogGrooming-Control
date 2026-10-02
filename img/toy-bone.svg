@@ -1,0 +1,24 @@
+<!-- Dog bone that drifts up behind the kiosk welcome screen. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 36" width="64" height="36">
+  <defs>
+    <!-- userSpaceOnUse so ONE gradient spans the whole bone. With the default
+         (objectBoundingBox) every circle and the shaft each get their own
+         gradient and the bone looks like separate pieces glued together. -->
+    <linearGradient id="bone" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="36">
+      <stop offset="0" stop-color="#FFFEFA"/>
+      <stop offset=".55" stop-color="#F6EDDA"/>
+      <stop offset="1" stop-color="#E2D0B2"/>
+    </linearGradient>
+  </defs>
+  <!-- four knuckles plus the shaft, one fill so they read as a single shape -->
+  <g fill="url(#bone)">
+    <circle cx="12" cy="11" r="10.5"/>
+    <circle cx="12" cy="25" r="10.5"/>
+    <circle cx="52" cy="11" r="10.5"/>
+    <circle cx="52" cy="25" r="10.5"/>
+    <rect x="9" y="11" width="46" height="14" rx="7"/>
+  </g>
+  <!-- soft sheen along the top so it looks rounded, not flat -->
+  <ellipse cx="15" cy="7" rx="5.5" ry="3" fill="#fff" opacity=".75"/>
+  <ellipse cx="49" cy="6.5" rx="4.5" ry="2.4" fill="#fff" opacity=".55"/>
+</svg>
