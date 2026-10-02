@@ -133,6 +133,7 @@ export const STRINGS = {
     k_required_name: "Please type your dog's name.",
     k_save_failed: 'We could not send it. Please let the front desk know.',
     k_pin_title: 'Enter PIN', k_pin_wrong: 'Wrong PIN',
+    k_exit_system: 'Back to system',
 
     // ---- Kiosk settings + pending review — text the SHOP reads ----
     kiosk_title: 'Entrance tablet',
@@ -271,6 +272,7 @@ export const STRINGS = {
     k_required_name: 'Escribe el nombre de tu perrito.',
     k_save_failed: 'No se pudo enviar. Por favor avísale a la recepción.',
     k_pin_title: 'Ingresa el PIN', k_pin_wrong: 'PIN incorrecto',
+    k_exit_system: 'Volver al sistema',
 
     // ---- Ajustes del kiosco + revisión — texto que lee el NEGOCIO ----
     kiosk_title: 'Tablet de la entrada',

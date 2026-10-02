@@ -44,13 +44,48 @@ function photoOf(dog) {
 
 function root() { return $('#kioskRoot'); }
 
-/** Swap the whole kiosk screen and restart the idle countdown. */
-function screen(html, mount) {
+/** The soap bubbles drifting up behind everything — the logo is a bubble bath. */
+function bubblesHTML(count = 14) {
+  let out = '';
+  for (let i = 0; i < count; i++) {
+    const size = 22 + Math.random() * 78;          // px
+    const left = Math.random() * 100;              // %
+    const dur = 13 + Math.random() * 16;           // s
+    const delay = -Math.random() * 25;             // s (negative = already rising)
+    const drift = (Math.random() * 120 - 60).toFixed(0); // px sideways
+    out += `<span class="kiosk-bubble" style="
+      width:${size.toFixed(0)}px;height:${size.toFixed(0)}px;
+      left:${left.toFixed(1)}%;
+      animation-duration:${dur.toFixed(1)}s;
+      animation-delay:${delay.toFixed(1)}s;
+      --drift:${drift}px;"></span>`;
+  }
+  return out;
+}
+
+/**
+ * Build the parts that never change: the bubble backdrop and the hidden
+ * long-press corner. Screens are swapped inside #kioskScreen, so the bubbles
+ * keep drifting instead of restarting on every navigation.
+ */
+function buildShell() {
   const el = root();
-  el.innerHTML = `<button class="kiosk-exit" id="kioskExit" aria-hidden="true" tabindex="-1"></button>${html}`;
+  if ($('#kioskScreen', el)) return; // already built
+  el.innerHTML = `
+    <div class="kiosk-bg" aria-hidden="true">${bubblesHTML()}</div>
+    <button class="kiosk-exit" id="kioskExit" aria-hidden="true" tabindex="-1"></button>
+    <div id="kioskScreen" style="display:contents"></div>`;
   wireExit();
-  if (mount) mount(el);
-  el.scrollTop = 0;
+}
+
+/** Swap the current kiosk screen and restart the idle countdown. */
+function screen(html, mount) {
+  buildShell();
+  const host = $('#kioskScreen');
+  host.innerHTML = html;
+  if (mount) mount(host);
+  const scroller = host.querySelector('.kiosk__screen');
+  if (scroller) scroller.scrollTop = 0;
   resetIdle();
 }
 
@@ -61,7 +96,7 @@ function resetIdle() {
 
 // ---------------- 1. Welcome ----------------
 
-/** Up to 5 real dogs from the shop's gallery — decoration only, no names. */
+/** Three real dogs from the shop's gallery — decoration only, no names. */
 function welcomePhotos() {
   const withPhoto = store.approvedDogs()
     .map(photoOf)
@@ -71,20 +106,22 @@ function welcomePhotos() {
     const j = Math.floor(Math.random() * (i + 1));
     [withPhoto[i], withPhoto[j]] = [withPhoto[j], withPhoto[i]];
   }
-  return withPhoto.slice(0, 5);
+  // Pull a couple of spares: any photo whose URL 404s is dropped on load, and
+  // we'd still like to end up showing three.
+  return withPhoto.slice(0, 6);
 }
 
 export function renderWelcome() {
   const pics = welcomePhotos();
   screen(`
-    <div class="kiosk__screen kiosk-welcome">
+    <div class="kiosk__screen kiosk-centred kiosk-welcome">
       <img class="kiosk-logo" src="${LOGO}" alt="Soto's Dog Grooming" />
 
       <div class="kiosk-welcome__hi">${escapeHtml(t('k_welcome'))}</div>
       <h1 class="kiosk-welcome__shop">Soto's Dog Grooming</h1>
       <p class="kiosk-welcome__tagline">${escapeHtml(t('k_tagline'))}</p>
 
-      <div class="kiosk-dogs">
+      <div class="kiosk-dogs" id="kDogs">
         ${pics.map((src) => `<img class="kiosk-dogs__item" src="${escapeHtml(src)}" alt="" />`).join('')}
       </div>
 
@@ -98,15 +135,51 @@ export function renderWelcome() {
           <span>${escapeHtml(t('k_find_dog'))}</span>
         </button>
       </div>
+
+      <button class="kiosk-exitbtn" id="kExit">
+        <i class="ti ti-lock"></i>${escapeHtml(t('k_exit_system'))}
+      </button>
     </div>`, (el) => {
-    $('#kNew', el).onclick = renderForm;
-    $('#kFind', el).onclick = renderSearch;
+    // NOTE: these must be wrapped, not passed straight as the handler.
+    // `onclick = renderSearch` would hand the click event to renderSearch as
+    // its `prefill` argument, and the box would open showing "[object PointerEvent]".
+    $('#kNew', el).onclick = () => renderForm();
+    $('#kFind', el).onclick = () => renderSearch();
+
+    // Show exactly three photos. A few spares are rendered hidden: a photo
+    // whose file is gone from Storage would otherwise leave a blank grey
+    // circle (which is what the first screenshot showed), so when one fails
+    // to load it is dropped and the next spare slides into its slot.
+    // Hidden images still load, so their errors are known straight away.
+    const row = $('#kDogs', el);
+    const imgs = [...row.querySelectorAll('.kiosk-dogs__item')];
+    const SLOTS = ['kiosk-dogs__item--a', 'kiosk-dogs__item--b', 'kiosk-dogs__item--c'];
+    const layout = () => {
+      const alive = imgs.filter((img) => !img.dataset.broken);
+      alive.forEach((img, i) => {
+        img.classList.remove(...SLOTS);
+        if (i < SLOTS.length) { img.classList.add(SLOTS[i]); img.style.display = ''; }
+        else img.style.display = 'none';
+      });
+    };
+    imgs.forEach((img) => {
+      img.addEventListener('error', () => { img.dataset.broken = '1'; layout(); });
+    });
+    layout();
+
+    // Three ways for staff to get out, all of them behind the PIN:
+    // the visible button, three taps on the logo, and the hidden corner.
+    $('#kExit', el).onclick = () => openPinPad();
+    wireTripleTap($('.kiosk-logo', el), openPinPad);
   });
 }
 
 // ---------------- 2. Search ----------------
 
-function renderSearch(prefill = '') {
+function renderSearch(prefillArg = '') {
+  // Defensive: only ever treat a real string as the prefill, so wiring this up
+  // as a bare event handler can never leak an event object into the box.
+  const prefill = typeof prefillArg === 'string' ? prefillArg : '';
   screen(`
     <div class="kiosk__screen">
       <div class="kiosk-head">
@@ -160,23 +233,33 @@ function showResults(query, el) {
     return;
   }
 
+  // Big cards in a horizontal carousel: swipe on the tablet, or use the
+  // arrows. Cards snap into place so one is always squarely in view.
   box.innerHTML = `
-    <p class="kiosk-hint" style="margin-bottom:10px">${escapeHtml(t('k_pick_yours'))}</p>
-    <div class="kiosk-results">
-      ${hits.map((d) => {
-        const pic = photoOf(d);
-        // Breed/colour only — enough for an owner to recognise their dog,
-        // without putting other clients' phone numbers on screen.
-        const sub = [d.breed, d.color].filter(Boolean).join(' · ');
-        return `
-          <button class="kiosk-result" data-dog="${escapeHtml(d.id)}">
-            ${pic
-              ? `<img class="kiosk-result__pic" src="${escapeHtml(pic)}" alt="" />`
-              : `<span class="kiosk-result__pic kiosk-result__pic--empty"><i class="ti ti-dog"></i></span>`}
-            <span class="kiosk-result__name">${escapeHtml(d.name)}</span>
-            ${sub ? `<span class="kiosk-result__sub">${escapeHtml(sub)}</span>` : ''}
-          </button>`;
-      }).join('')}
+    <p class="kiosk-hint-strong">${escapeHtml(t('k_pick_yours'))}</p>
+    <div class="kiosk-carousel__wrap">
+      <button class="kiosk-carousel__nav kiosk-carousel__nav--prev" id="kPrev" hidden aria-label="◀">
+        <i class="ti ti-chevron-left"></i>
+      </button>
+      <div class="kiosk-carousel" id="kCar">
+        ${hits.map((d) => {
+          const pic = photoOf(d);
+          // Breed/colour only — enough for an owner to recognise their dog,
+          // without putting other clients' phone numbers on screen.
+          const sub = [d.breed, d.color].filter(Boolean).join(' · ');
+          return `
+            <button class="kiosk-result" data-dog="${escapeHtml(d.id)}">
+              ${pic
+                ? `<img class="kiosk-result__pic" src="${escapeHtml(pic)}" alt="" />`
+                : `<span class="kiosk-result__pic kiosk-result__pic--empty"><i class="ti ti-dog"></i></span>`}
+              <span class="kiosk-result__name">${escapeHtml(d.name)}</span>
+              ${sub ? `<span class="kiosk-result__sub">${escapeHtml(sub)}</span>` : ''}
+            </button>`;
+        }).join('')}
+      </div>
+      <button class="kiosk-carousel__nav kiosk-carousel__nav--next" id="kNext" hidden aria-label="▶">
+        <i class="ti ti-chevron-right"></i>
+      </button>
     </div>`;
 
   $$('[data-dog]', box).forEach((b) => {
@@ -185,6 +268,36 @@ function showResults(query, el) {
       if (dog) renderCard(dog);
     };
   });
+
+  wireCarousel(box);
+}
+
+/** Show the arrows only while the row actually overflows, and scroll by a card. */
+function wireCarousel(box) {
+  const car = $('#kCar', box);
+  const prev = $('#kPrev', box);
+  const next = $('#kNext', box);
+  if (!car || !prev || !next) return;
+
+  const step = () => {
+    const card = car.querySelector('.kiosk-result');
+    return card ? card.offsetWidth + 22 : car.clientWidth * .8;
+  };
+
+  const sync = () => {
+    const overflow = car.scrollWidth - car.clientWidth > 8;
+    // 2px of slack so a rounded scroll position still counts as "at the end".
+    prev.hidden = !overflow || car.scrollLeft <= 2;
+    next.hidden = !overflow || car.scrollLeft >= car.scrollWidth - car.clientWidth - 2;
+  };
+
+  prev.onclick = () => { car.scrollBy({ left: -step(), behavior: 'smooth' }); resetIdle(); };
+  next.onclick = () => { car.scrollBy({ left: step(), behavior: 'smooth' }); resetIdle(); };
+  car.addEventListener('scroll', sync, { passive: true });
+  // Photos loading changes the width, so re-check once they settle.
+  $$('.kiosk-result__pic', car).forEach((img) => img.addEventListener && img.addEventListener('load', sync));
+  window.addEventListener('resize', sync);
+  sync();
 }
 
 // ---------------- 3. Dog card (read-only) ----------------
@@ -237,7 +350,7 @@ function renderCard(dog) {
         </div>` : ''}
 
       ${dog.cutRequest ? `
-        <div class="kiosk-note">
+        <div class="kiosk-note kiosk-note--accent">
           <div class="kiosk-spec__lbl">${escapeHtml(t('cut_request'))}</div>
           <p>${escapeHtml(dog.cutRequest)}</p>
         </div>` : ''}
@@ -385,7 +498,7 @@ function renderForm() {
 
 function renderThanks(dogName) {
   screen(`
-    <div class="kiosk__screen kiosk-thanks">
+    <div class="kiosk__screen kiosk-centred kiosk-thanks">
       <div class="kiosk-thanks__ico"><i class="ti ti-circle-check"></i></div>
       <h2 class="kiosk-thanks__title">${escapeHtml(t('k_thanks'))}</h2>
       <p class="kiosk-thanks__sub">${escapeHtml(t('k_thanks_sub', { dog: dogName }))}</p>
@@ -407,7 +520,25 @@ function currentPin() {
   return /^\d{4}$/.test(pin || '') ? pin : DEFAULT_PIN;
 }
 
-/** Long-press the top-right corner (over the logo) to ask for the PIN. */
+/**
+ * Three taps in quick succession on `el` run `fn`. Used on the logo so staff
+ * have an obvious way in, while a customer tapping the logo once or twice out
+ * of curiosity never triggers it. The counter resets after a short pause.
+ */
+function wireTripleTap(el, fn, taps = 3, windowMs = 800) {
+  if (!el) return;
+  let count = 0;
+  let timer = null;
+  el.style.cursor = 'pointer';
+  el.addEventListener('click', () => {
+    count++;
+    clearTimeout(timer);
+    if (count >= taps) { count = 0; fn(); return; }
+    timer = setTimeout(() => { count = 0; }, windowMs);
+  });
+}
+
+/** Long-press the top-right corner to ask for the PIN (works on every screen). */
 function wireExit() {
   const btn = $('#kioskExit');
   if (!btn) return;
