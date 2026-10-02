@@ -215,7 +215,17 @@ body.kiosk-on { overflow: hidden; }
     align-items: flex-start;
     text-align: left;
   }
-  .kiosk-hero { max-height: min(74vh, 620px); }
+
+  /* The photo is capped by height, never by width — it is a tall portrait and
+     its half always has width to spare. So the height cap is what decides how
+     big the dogs look. 76vh is the most that still leaves room for the logo
+     above it on a short landscape tablet; the 800px ceiling stops it from
+     getting silly on a very tall monitor. */
+  .kiosk-hero { max-height: min(76vh, 800px); }
+
+  /* Smaller logo here so that height goes to the dogs instead. The shop name
+     is spelled out in large type on the other half anyway. */
+  .kiosk-logo { width: clamp(72px, 9vmin, 110px); height: clamp(72px, 9vmin, 110px); }
 
   /* Each half is narrower than the full screen, so the choices stack. */
   .kiosk-choices { flex-direction: column; max-width: none; }
