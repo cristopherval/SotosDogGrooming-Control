@@ -663,16 +663,24 @@ input, select, textarea, .form-control, .form-select { font-size: 16px !importan
    The app is mobile-first: the shell is capped at 760px because it lives on
    the phone in the groomer's pocket. On a computer that wastes most of the
    screen and leaves the dog list stuck at two columns, so from 1024px up the
-   shell widens and the card grids fill it with as many columns as fit.
+   shell widens and the dog list goes from two columns to three roomy ones.
    Nothing below 1024px changes, so the phone and the tablet are untouched. */
 @media (min-width: 1024px) {
   .app-header__inner,
-  .app-main { max-width: 1240px; }
+  .app-main { max-width: 1280px; }
 
-  /* As many cards per row as fit, instead of a hard two. 270px is the
-     narrowest a dog card stays comfortable at; it lands on 4 columns at the
-     common 1366px laptop width and 5 on a full-HD monitor. */
-  .card-grid { grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); }
+  /* Three per row, deliberately. Letting the grid auto-fill packed five
+     narrow cards onto a wide monitor and read as cramped; three roomy cards
+     (~400px each) use the same space far better. The shell is capped so they
+     stay that size instead of stretching further on a bigger screen. */
+  .card-grid { grid-template-columns: repeat(3, 1fr); }
+
+  /* Bigger cards earn a bigger photo and slightly larger text. */
+  .dog-card { padding: 16px; gap: 14px; }
+  .dog-card__avatar { width: 76px; height: 76px; border-radius: 20px; font-size: 32px; }
+  .dog-card__name { font-size: 18px; }
+  .dog-card__sub { font-size: 14px; }
+  .dog-card__owner { font-size: 13px; margin-top: 3px; }
 
   /* With the extra width these read better as one row than as a 2x2 block. */
   .filter-grid { grid-template-columns: repeat(4, 1fr); }
@@ -686,11 +694,6 @@ input, select, textarea, .form-control, .form-select { font-size: 16px !importan
      Keep them in a comfortable reading column. */
   .view[data-view="settings"],
   .view[data-view="appointments"] { max-width: 860px; margin-inline: auto; }
-}
-
-@media (min-width: 1500px) {
-  .app-header__inner,
-  .app-main { max-width: 1520px; }
 }
 
 /* ---------------- Print ---------------- */
