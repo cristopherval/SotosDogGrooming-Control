@@ -94,9 +94,71 @@ function hasAlert(dog) {
   return /(!|urgent|urgente|alert|alerta|bite|muerde|aggress|agres)/.test(n);
 }
 
+// ---------------- Pending review (entrance tablet) ----------------
+// Dogs a customer registered on the tablet land here instead of in the real
+// list. The shop opens each one, fixes anything the customer typed badly, and
+// approves it — or deletes it if it's a duplicate.
+function renderPendingPanel() {
+  const box = $('#pendingPanel');
+  if (!box) return;
+  const items = store.pendingDogs();
+  if (!items.length) { box.classList.add('d-none'); box.innerHTML = ''; return; }
+
+  box.classList.remove('d-none');
+  box.innerHTML = `
+    <div class="pending-panel__head">
+      <i class="ti ti-device-tablet"></i>
+      <span>${escapeHtml(t('pending_title'))}</span>
+      <span class="pending-panel__count">${items.length}</span>
+    </div>
+    <p class="pending-panel__desc">${escapeHtml(t('pending_desc'))}</p>
+    <div class="pending-list">
+      ${items.map((d) => {
+        const owner = [d.ownerFirst, d.ownerLast].filter(Boolean).join(' ');
+        const sub = [owner, d.phone, d.breed].filter(Boolean).join(' · ');
+        return `
+          <div class="pending-item">
+            ${d.photo
+              ? `<img class="pending-item__pic" src="${escapeHtml(d.photo)}" alt="" />`
+              : `<span class="pending-item__pic pending-item__pic--empty"><i class="ti ti-dog"></i></span>`}
+            <div class="pending-item__info">
+              <div class="pending-item__name">${escapeHtml(d.name)}</div>
+              <div class="pending-item__sub">${escapeHtml(sub || '—')}</div>
+            </div>
+            <div class="pending-item__actions">
+              <button class="btn btn-sm btn-outline-secondary" data-review="${escapeHtml(d.id)}">
+                <i class="ti ti-eye"></i>
+              </button>
+              <button class="btn btn-sm btn-primary" data-approve="${escapeHtml(d.id)}">
+                <i class="ti ti-check"></i> ${escapeHtml(t('approve'))}
+              </button>
+            </div>
+          </div>`;
+      }).join('')}
+    </div>`;
+
+  // Review opens the full profile, where the shop can edit or delete as usual.
+  $$('[data-review]', box).forEach((b) => {
+    b.onclick = () => openDogProfile(b.getAttribute('data-review'));
+  });
+  $$('[data-approve]', box).forEach((b) => {
+    b.onclick = async () => {
+      b.disabled = true;
+      try {
+        await store.approveDog(b.getAttribute('data-approve'));
+        toast(t('approved'));
+        renderDogs();
+      } catch (e) {
+        b.disabled = false; // store already toasted the reason
+      }
+    };
+  });
+}
+
 // ---------------- Home render ----------------
 export function renderDogs() {
   syncFilterOptions();
+  renderPendingPanel();
   const list = $('#dogList');
   const empty = $('#dogEmpty');
   const dogs = filteredDogs();
@@ -134,7 +196,9 @@ export function renderDogs() {
 
 function filteredDogs() {
   const q = filters.search.trim().toLowerCase();
-  const list = store.data.dogs
+  // Dogs registered on the entrance tablet stay out of the list until the shop
+  // approves them — they live in the review panel above it instead.
+  const list = store.approvedDogs()
     .filter((d) => {
       if (q) {
         const owner = `${d.ownerFirst || ''} ${d.ownerLast || ''}`.toLowerCase();
@@ -344,7 +408,10 @@ export function openDogForm(id) {
           </label>`).join('')}
       </div>
 
-      <div class="field" style="margin-top:6px"><label class="form-label">${escapeHtml(t('price'))}</label>
+      <div class="field" style="margin-top:6px"><label class="form-label">${escapeHtml(t('cut_request'))}</label>
+        <textarea id="dCut" class="form-control" rows="2">${d ? escapeHtml(d.cutRequest || '') : ''}</textarea></div>
+
+      <div class="field"><label class="form-label">${escapeHtml(t('price'))}</label>
         <input id="dPrice" class="form-control" inputmode="decimal" placeholder="$" value="${d ? escapeHtml(d.price || '') : ''}" /></div>
 
       <div class="field"><label class="form-label">${escapeHtml(t('notes'))}</label>
@@ -431,11 +498,15 @@ export function openDogForm(id) {
           combBody: $('#dCombB', body).value.trim(),
           care: Object.fromEntries(
             $$('[data-care]', body).map((cb) => [cb.getAttribute('data-care'), cb.checked])),
+          cutRequest: $('#dCut', body).value.trim(),
           price: $('#dPrice', body).value.trim(),
           notes: $('#dNotes', body).value.trim(),
           photos,
           photo: firstPhoto(photos), // representative thumbnail for card/avatar
           vaccines: d ? (d.vaccines || {}) : {},
+          // Editing a pending dog is not the same as approving it — that stays
+          // an explicit tap on Approve, so nothing slips into the list silently.
+          pending: d ? !!d.pending : false,
         };
         saveBtn.disabled = true;
         try {
@@ -515,6 +586,21 @@ export function openDogProfile(id) {
         </div>
       </div>
 
+      ${dog.cutRequest ? `
+      <div class="info-box" style="margin-bottom:10px">
+        <div class="info-box__lbl">${escapeHtml(t('cut_request'))}</div>
+        <div class="info-box__val" style="font-weight:400;white-space:pre-wrap">${escapeHtml(dog.cutRequest)}</div>
+      </div>` : ''}
+
+      ${dog.pending ? `
+      <div class="info-box" style="margin-bottom:10px;border-color:var(--brand)">
+        <div class="info-box__lbl">${escapeHtml(t('pending_badge'))}</div>
+        <div class="text-muted small" style="margin:4px 0 8px">${escapeHtml(t('pending_desc'))}</div>
+        <button class="btn btn-primary w-100" data-act="approve">
+          <i class="ti ti-check"></i> ${escapeHtml(t('approve'))}
+        </button>
+      </div>` : ''}
+
       <button class="btn btn-outline-primary btn-sheet" data-act="sheet">
         <i class="ti ti-printer"></i> ${escapeHtml(t('print_share_sheet'))}
       </button>
@@ -572,6 +658,14 @@ export function openDogProfile(id) {
 
     body.querySelector('[data-act="add-appt"]').onclick = () =>
       openVisitForm(id, () => openDogProfile(id));
+
+    // only present while the dog is still waiting for review
+    const approveBtn = body.querySelector('[data-act="approve"]');
+    if (approveBtn) approveBtn.onclick = async () => {
+      approveBtn.disabled = true;
+      try { await store.approveDog(id); renderDogs(); openDogProfile(id); toast(t('approved')); }
+      catch (e) { approveBtn.disabled = false; /* store toasted */ }
+    };
 
     // timeline delete + reminder
     bindTimeline(body, dog, () => openDogProfile(id));

@@ -50,7 +50,9 @@ create table dogs (
   notes text, price text,
   photos jsonb default '{}'::jsonb,
   vaccines jsonb default '{}'::jsonb,
-  care jsonb default '{}'::jsonb
+  care jsonb default '{}'::jsonb,
+  pending boolean default false,
+  cut_request text
 );
 
 -- "appointments" now stores walk-in VISITS: time = arrival, time_out = departure,
@@ -95,6 +97,8 @@ create policy "auth full access" on vaccine_catalog for all to authenticated usi
 > ```sql
 > alter table dogs         add column if not exists price text;
 > alter table dogs         add column if not exists care jsonb default '{}'::jsonb;
+> alter table dogs         add column if not exists pending boolean default false;
+> alter table dogs         add column if not exists cut_request text;
 > alter table appointments add column if not exists time_out text;
 > alter table appointments add column if not exists price text;
 > ```
@@ -120,6 +124,32 @@ exist simply start with all the boxes unchecked.
 > Why one `jsonb` column instead of one column per checkbox: same reason
 > `vaccines` and `photos` are jsonb. Adding another checkbox later then becomes
 > a change in the app only — no more SQL, ever.
+
+### Entrance tablet / kiosk (`pending` + `cut_request` columns)
+
+**Kiosk mode** turns a tablet at the shop entrance into a welcome screen for
+customers: they either register a new dog or look theirs up and read its
+grooming card. It needs the `pending` and `cut_request` columns above.
+
+- `pending` — a dog registered by a customer on the tablet is saved with
+  `pending = true`. It does **not** appear in the normal dog list; it shows up
+  in a *"New dogs to review"* panel at the top of the Dogs screen, where the
+  shop approves or deletes it. Approving just clears the flag. This keeps the
+  public from writing straight into the real client list.
+- `cut_request` — the customer's own words for how they want the cut
+  (optional; they can always just say it in person). The groomer reads it and
+  translates it into blades and combs.
+
+Same rule as before: **run the SQL before publishing the app update.** The
+columns are additive and change nothing for the version in use.
+
+Turn kiosk mode on in **Settings → Entrance tablet**, where you also set the
+4-digit PIN that leaves kiosk mode. The PIN is stored on that device only.
+
+> The PIN keeps a curious customer out of the shop's data; it is not real
+> security. For a tablet left unattended, also turn on the tablet's own lock:
+> **Guided Access** on iPad (Settings → Accessibility) or **screen pinning**
+> on Android. That stops someone from leaving the browser altogether.
 
 ## 4. Create the photo storage bucket
 

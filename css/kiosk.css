@@ -1,0 +1,527 @@
+/* ============================================================
+   kiosk.css — the entrance tablet.
+   A full-screen, customer-facing skin that sits on top of the app.
+   Big type and big touch targets: this is read standing up, at arm's
+   length, by someone holding a dog leash. Colours come from the same
+   theme tokens as the rest of the app, so it follows the chosen theme.
+   ============================================================ */
+
+/* While the kiosk is up, the app behind it must not scroll or bounce —
+   a customer dragging the screen should never reveal the real app. */
+body.kiosk-on { overflow: hidden; }
+
+.kiosk {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  color: var(--text);
+  overflow: hidden;
+  /* the tablet is a shared device: never offer to autofill or translate */
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* Soft brand glow in the corners — keeps the big empty areas from
+   looking flat without adding any image weight. */
+.kiosk::before,
+.kiosk::after {
+  content: '';
+  position: absolute;
+  width: 55vmin;
+  height: 55vmin;
+  border-radius: 50%;
+  background: var(--brand);
+  opacity: .13;
+  filter: blur(70px);
+  pointer-events: none;
+}
+.kiosk::before { top: -18vmin; left: -12vmin; }
+.kiosk::after { bottom: -20vmin; right: -14vmin; opacity: .1; }
+
+/* Each step of the flow. Only one is visible at a time. */
+.kiosk__screen {
+  position: relative;
+  z-index: 1;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: clamp(16px, 4vmin, 48px);
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.kiosk__screen.d-none { display: none; }
+
+/* ---------------- Welcome ---------------- */
+
+.kiosk-welcome {
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: clamp(10px, 2.2vmin, 22px);
+}
+
+.kiosk-logo {
+  width: clamp(96px, 17vmin, 168px);
+  height: clamp(96px, 17vmin, 168px);
+  border-radius: 50%;
+  object-fit: cover;
+  background: var(--surface);
+  box-shadow: 0 10px 40px rgba(40, 30, 90, .18);
+  border: 4px solid var(--surface);
+}
+
+.kiosk-welcome__hi {
+  font-size: clamp(16px, 2.6vmin, 26px);
+  color: var(--text-muted);
+  font-weight: 600;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+.kiosk-welcome__shop {
+  font-size: clamp(30px, 6.4vmin, 68px);
+  font-weight: 800;
+  line-height: 1.05;
+  letter-spacing: -.02em;
+  margin: 0;
+}
+.kiosk-welcome__tagline {
+  font-size: clamp(14px, 2.3vmin, 22px);
+  color: var(--text-muted);
+  max-width: 34ch;
+  margin: 0;
+}
+
+/* Row of real dogs from the shop's own gallery. Decorative only —
+   no names, no owners, just happy customers. */
+.kiosk-dogs {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: clamp(8px, 1.6vmin, 18px);
+  margin: clamp(4px, 1.4vmin, 14px) 0;
+  min-height: 1px; /* collapses cleanly when the shop has no photos yet */
+}
+.kiosk-dogs__item {
+  width: clamp(56px, 11vmin, 116px);
+  height: clamp(56px, 11vmin, 116px);
+  border-radius: 50%;
+  object-fit: cover;
+  border: 4px solid var(--surface);
+  box-shadow: 0 6px 20px rgba(40, 30, 90, .14);
+  background: var(--brand-soft);
+  animation: kiosk-float 5s ease-in-out infinite;
+}
+/* Stagger so the row breathes instead of bobbing in unison. */
+.kiosk-dogs__item:nth-child(2) { animation-delay: .6s; }
+.kiosk-dogs__item:nth-child(3) { animation-delay: 1.2s; }
+.kiosk-dogs__item:nth-child(4) { animation-delay: 1.8s; }
+.kiosk-dogs__item:nth-child(5) { animation-delay: 2.4s; }
+
+/* The middle photo sits a little larger, like a hero. */
+.kiosk-dogs__item:nth-child(3) {
+  width: clamp(72px, 14vmin, 150px);
+  height: clamp(72px, 14vmin, 150px);
+}
+
+@keyframes kiosk-float {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-9px); }
+}
+
+/* On a phone-sized screen only the three middle photos fit. */
+@media (max-width: 560px) {
+  .kiosk-dogs__item:nth-child(1),
+  .kiosk-dogs__item:nth-child(5) { display: none; }
+}
+
+/* ---------------- The two big choices ---------------- */
+
+.kiosk-choices {
+  display: flex;
+  gap: clamp(12px, 2.2vmin, 24px);
+  width: 100%;
+  max-width: 760px;
+  margin-top: clamp(8px, 2vmin, 20px);
+}
+@media (max-width: 640px) {
+  .kiosk-choices { flex-direction: column; }
+}
+
+.kiosk-choice {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: clamp(18px, 3.4vmin, 34px) clamp(12px, 2vmin, 20px);
+  border-radius: 26px;
+  border: 2px solid transparent;
+  font-size: clamp(17px, 2.7vmin, 26px);
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform .14s ease, box-shadow .14s ease;
+  min-height: 112px;
+}
+.kiosk-choice i { font-size: clamp(28px, 4.6vmin, 46px); }
+.kiosk-choice:active { transform: scale(.97); }
+
+.kiosk-choice--new {
+  background: var(--brand);
+  color: #fff;
+  box-shadow: 0 10px 30px rgba(123, 97, 255, .34);
+}
+.kiosk-choice--find {
+  background: var(--surface);
+  color: var(--text);
+  border-color: var(--border);
+  box-shadow: var(--shadow);
+}
+
+/* ---------------- Shared screen furniture ---------------- */
+
+.kiosk-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: clamp(12px, 2.4vmin, 26px);
+}
+.kiosk-title {
+  font-size: clamp(20px, 3.4vmin, 34px);
+  font-weight: 800;
+  margin: 0;
+}
+
+/* Back / Done — always bottom-left-ish and thumb-sized. */
+.kiosk-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 14px clamp(18px, 3vmin, 30px);
+  border-radius: 999px;
+  border: 2px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font-size: clamp(15px, 2.2vmin, 20px);
+  font-weight: 700;
+  cursor: pointer;
+  min-height: 56px;
+}
+.kiosk-btn:active { transform: scale(.97); }
+.kiosk-btn--primary {
+  background: var(--brand);
+  border-color: var(--brand);
+  color: #fff;
+  box-shadow: 0 8px 24px rgba(123, 97, 255, .3);
+}
+.kiosk-btn--primary:disabled { opacity: .6; }
+.kiosk-btn--lg { width: 100%; font-size: clamp(17px, 2.6vmin, 23px); min-height: 68px; }
+
+.kiosk-foot {
+  margin-top: auto;
+  padding-top: clamp(12px, 2.4vmin, 24px);
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+/* ---------------- Search ---------------- */
+
+.kiosk-search__row { display: flex; gap: 12px; margin-bottom: clamp(12px, 2.4vmin, 24px); }
+.kiosk-search__input {
+  flex: 1;
+  padding: 16px 20px;
+  font-size: clamp(17px, 2.8vmin, 26px);
+  border-radius: 18px;
+  border: 2px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  min-height: 64px;
+}
+.kiosk-search__input:focus { outline: none; border-color: var(--brand); }
+
+.kiosk-results {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: clamp(10px, 1.8vmin, 18px);
+}
+.kiosk-result {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: clamp(14px, 2.2vmin, 22px) 12px;
+  border-radius: 22px;
+  background: var(--surface);
+  border: 2px solid var(--border);
+  box-shadow: var(--shadow);
+  cursor: pointer;
+  text-align: center;
+}
+.kiosk-result:active { transform: scale(.97); }
+.kiosk-result__pic {
+  width: clamp(72px, 11vmin, 110px);
+  height: clamp(72px, 11vmin, 110px);
+  border-radius: 50%;
+  object-fit: cover;
+  background: var(--brand-soft);
+}
+.kiosk-result__pic--empty {
+  display: grid;
+  place-items: center;
+  color: var(--brand);
+  font-size: clamp(30px, 5vmin, 46px);
+}
+.kiosk-result__name { font-size: clamp(16px, 2.4vmin, 22px); font-weight: 700; }
+.kiosk-result__sub { font-size: clamp(12px, 1.8vmin, 16px); color: var(--text-muted); }
+
+.kiosk-empty {
+  text-align: center;
+  padding: clamp(24px, 6vmin, 60px) 16px;
+  color: var(--text-muted);
+}
+.kiosk-empty i { font-size: clamp(42px, 8vmin, 72px); opacity: .45; display: block; margin-bottom: 12px; }
+.kiosk-empty__title { font-size: clamp(17px, 2.6vmin, 24px); font-weight: 700; color: var(--text); }
+
+/* ---------------- Dog card (what the customer reads) ---------------- */
+
+.kiosk-card__hero {
+  display: flex;
+  align-items: center;
+  gap: clamp(14px, 2.6vmin, 26px);
+  margin-bottom: clamp(14px, 2.6vmin, 26px);
+}
+.kiosk-card__pic {
+  width: clamp(88px, 15vmin, 150px);
+  height: clamp(88px, 15vmin, 150px);
+  border-radius: 28px;
+  object-fit: cover;
+  background: var(--brand-soft);
+  flex-shrink: 0;
+}
+.kiosk-card__pic--empty { display: grid; place-items: center; color: var(--brand); font-size: clamp(36px, 7vmin, 64px); }
+.kiosk-card__name { font-size: clamp(26px, 5vmin, 48px); font-weight: 800; line-height: 1.1; }
+.kiosk-card__sub { font-size: clamp(14px, 2.2vmin, 20px); color: var(--text-muted); margin-top: 4px; }
+
+.kiosk-specs {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: clamp(10px, 1.6vmin, 16px);
+}
+.kiosk-spec {
+  background: var(--surface);
+  border: 2px solid var(--border);
+  border-radius: 18px;
+  padding: clamp(12px, 2vmin, 18px);
+}
+.kiosk-spec__lbl {
+  font-size: clamp(11px, 1.6vmin, 14px);
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  color: var(--text-muted);
+  font-weight: 700;
+}
+.kiosk-spec__val { font-size: clamp(16px, 2.4vmin, 22px); font-weight: 700; margin-top: 4px; }
+
+.kiosk-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
+.kiosk-chip {
+  background: var(--brand-soft);
+  color: var(--brand);
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-size: clamp(13px, 1.9vmin, 17px);
+  font-weight: 700;
+}
+
+.kiosk-note {
+  margin-top: clamp(10px, 1.8vmin, 18px);
+  background: var(--surface);
+  border: 2px solid var(--border);
+  border-radius: 18px;
+  padding: clamp(12px, 2vmin, 18px);
+}
+.kiosk-note p { margin: 6px 0 0; font-size: clamp(15px, 2.2vmin, 20px); white-space: pre-wrap; }
+
+/* ---------------- New-dog form ---------------- */
+
+.kiosk-form { display: flex; flex-direction: column; gap: clamp(10px, 1.8vmin, 18px); }
+.kiosk-form__section {
+  font-size: clamp(15px, 2.2vmin, 20px);
+  font-weight: 800;
+  margin: clamp(6px, 1.2vmin, 12px) 0 0;
+}
+.kiosk-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: clamp(10px, 1.6vmin, 16px);
+}
+.kiosk-field { display: flex; flex-direction: column; gap: 6px; }
+.kiosk-field__lbl { font-size: clamp(13px, 1.9vmin, 17px); font-weight: 700; color: var(--text-muted); }
+.kiosk-field__opt { font-weight: 500; opacity: .8; }
+.kiosk-input,
+.kiosk-select,
+.kiosk-textarea {
+  padding: 14px 16px;
+  font-size: clamp(16px, 2.3vmin, 20px);
+  border-radius: 16px;
+  border: 2px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  min-height: 58px;
+  width: 100%;
+  font-family: inherit;
+}
+.kiosk-textarea { min-height: 110px; resize: none; }
+.kiosk-input:focus,
+.kiosk-select:focus,
+.kiosk-textarea:focus { outline: none; border-color: var(--brand); }
+
+.kiosk-hint { font-size: clamp(12px, 1.8vmin, 16px); color: var(--text-muted); margin: 2px 0 0; }
+
+/* Care checkboxes, sized for fingers rather than a mouse. */
+.kiosk-checks { display: grid; grid-template-columns: repeat(auto-fit, minmax(215px, 1fr)); gap: 10px; }
+.kiosk-check {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  border: 2px solid var(--border);
+  background: var(--surface);
+  font-size: clamp(14px, 2.1vmin, 19px);
+  font-weight: 600;
+  cursor: pointer;
+  min-height: 60px;
+}
+.kiosk-check input { width: 26px; height: 26px; accent-color: var(--brand); flex-shrink: 0; }
+
+.kiosk-error {
+  background: rgba(224, 49, 49, .12);
+  color: var(--danger);
+  border-radius: 14px;
+  padding: 12px 16px;
+  font-weight: 700;
+  font-size: clamp(14px, 2vmin, 18px);
+}
+
+/* ---------------- Thank you ---------------- */
+
+.kiosk-thanks {
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: clamp(10px, 2vmin, 20px);
+}
+.kiosk-thanks__ico {
+  width: clamp(88px, 15vmin, 150px);
+  height: clamp(88px, 15vmin, 150px);
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--brand-soft);
+  color: var(--brand);
+  font-size: clamp(44px, 8vmin, 78px);
+}
+.kiosk-thanks__title { font-size: clamp(28px, 5.4vmin, 54px); font-weight: 800; margin: 0; }
+.kiosk-thanks__sub { font-size: clamp(15px, 2.4vmin, 22px); color: var(--text-muted); max-width: 34ch; margin: 0; }
+
+/* ---------------- PIN pad (staff only) ---------------- */
+
+.kiosk-pin {
+  position: fixed;
+  inset: 0;
+  z-index: 2100;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  background: rgba(10, 10, 20, .82);
+  backdrop-filter: blur(6px);
+}
+.kiosk-pin.d-none { display: none; }
+.kiosk-pin__title { color: #fff; font-size: clamp(18px, 2.8vmin, 26px); font-weight: 700; }
+.kiosk-pin__dots { display: flex; gap: 14px; }
+.kiosk-pin__dot {
+  width: 18px; height: 18px; border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, .6);
+}
+.kiosk-pin__dot.is-on { background: #fff; border-color: #fff; }
+.kiosk-pin__pad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.kiosk-pin__key {
+  width: 76px; height: 76px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255, 255, 255, .14);
+  color: #fff;
+  font-size: 28px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.kiosk-pin__key:active { background: rgba(255, 255, 255, .3); }
+.kiosk-pin__key--wide { font-size: 20px; }
+.kiosk-pin__err { color: #ff9a9a; font-weight: 700; min-height: 22px; }
+
+/* The invisible long-press target that opens the PIN pad. It sits over the
+   logo, so staff know where it is and customers never find it by accident. */
+.kiosk-exit {
+  position: absolute;
+  top: 0; right: 0;
+  width: 92px; height: 92px;
+  z-index: 2;
+  background: transparent;
+  border: none;
+  cursor: default;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* ---------------- Pending review (shop side, inside the normal app) -------- */
+
+.pending-panel {
+  background: var(--surface);
+  border: 2px solid var(--brand);
+  border-radius: var(--radius);
+  padding: 14px;
+  margin-bottom: 14px;
+  box-shadow: var(--shadow);
+}
+.pending-panel__head { display: flex; align-items: center; gap: 8px; font-weight: 800; }
+.pending-panel__count {
+  background: var(--brand); color: #fff; border-radius: 999px;
+  padding: 1px 9px; font-size: 12px;
+}
+.pending-panel__desc { color: var(--text-muted); font-size: 12px; margin: 4px 0 10px; }
+.pending-list { display: flex; flex-direction: column; gap: 8px; }
+.pending-item {
+  display: flex; align-items: center; gap: 10px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 8px 10px;
+}
+.pending-item__pic {
+  width: 42px; height: 42px; border-radius: 12px; object-fit: cover;
+  background: var(--brand-soft); flex-shrink: 0;
+}
+.pending-item__pic--empty { display: grid; place-items: center; color: var(--brand); }
+.pending-item__info { flex: 1; min-width: 0; }
+.pending-item__name { font-weight: 700; }
+.pending-item__sub {
+  font-size: 12px; color: var(--text-muted);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.pending-item__actions { display: flex; gap: 6px; flex-shrink: 0; }
+
+.dog-card__pending {
+  background: var(--warn); color: #fff;
+  border-radius: 999px; padding: 1px 8px; font-size: 11px; font-weight: 700;
+}
+
+/* Respect a reduced-motion preference: drop the floating photos. */
+@media (prefers-reduced-motion: reduce) {
+  .kiosk-dogs__item { animation: none; }
+}

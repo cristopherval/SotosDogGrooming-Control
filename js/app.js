@@ -11,6 +11,7 @@ import { openVaccineForm } from './vaccines.js';
 import { activeVisits, markDeparture, serviceLabels, renderAppointments, openVisitForm } from './appointments.js';
 import { fmtTime } from './utils.js';
 import { initThemes, applyTheme, resolveTheme } from './themes.js';
+import { isKioskOn, enterKiosk, initKiosk } from './kiosk.js';
 
 const views = {
   dogs: renderDogs,
@@ -123,6 +124,7 @@ function wireEvents() {
       case 'export-backup': exportBackup(); break;
       case 'import-backup': triggerImport(); break;
       case 'migrate-local': migrateLocal(btn); break;
+      case 'start-kiosk': startKiosk(); break;
       case 'logout': logout(); break;
     }
   });
@@ -200,6 +202,27 @@ async function logout() {
   location.reload();
 }
 
+// ---------------- Kiosk (entrance tablet) ----------------
+// Turning it on hides the whole app behind the welcome screen; only the PIN
+// brings it back. The flag lives in device settings, so this tablet reopens
+// straight into kiosk mode after a reload or a power cycle.
+function startKiosk() {
+  const input = $('#kioskPinInput');
+  const pin = (input ? input.value : '').trim();
+  if (!/^\d{4}$/.test(pin)) {
+    toast(t('kiosk_pin_invalid'));
+    if (input) input.focus();
+    return;
+  }
+  store.setSetting('kioskPin', pin);
+  enterKiosk(backFromKiosk);
+}
+
+/** The PIN was accepted — show the normal app again. */
+function backFromKiosk() {
+  showView(currentView);
+}
+
 /** Hydrate from Supabase and show the app. */
 async function bootApp() {
   hideLogin();
@@ -214,6 +237,8 @@ async function bootApp() {
   const emailEl = $('#accountEmail');
   if (emailEl && user) emailEl.textContent = user.email || '';
   showView('dogs');
+  // This device is the entrance tablet: cover the app with the welcome screen.
+  if (isKioskOn()) enterKiosk(backFromKiosk);
 }
 
 // ---------------- One-time local→cloud migration ----------------
@@ -241,6 +266,11 @@ async function init() {
   applyTranslations();
   wireEvents();
   wireAuth();
+  initKiosk(backFromKiosk);
+
+  // prefill the kiosk PIN box with the one saved on this device
+  const pinInput = $('#kioskPinInput');
+  if (pinInput) pinInput.value = store.data.settings.kioskPin || '';
 
   // register service worker (PWA) — ignored on file:// or unsupported
   if ('serviceWorker' in navigator) {

@@ -109,6 +109,10 @@ function rowToDog(r) {
     notes: r.notes || '', photos, photo: firstPhoto(photos),
     vaccines: r.vaccines || {},
     care: r.care || {}, // routine care checkboxes; {} for rows saved before it existed
+    // Registered by a customer on the entrance tablet and not reviewed yet.
+    // Kept out of the normal dog list until the shop approves it.
+    pending: !!r.pending,
+    cutRequest: r.cut_request || '', // the customer's own words (optional)
     updatedAt: r.updated_at || '', // last modification (for "recently updated" sort)
   };
 }
@@ -121,6 +125,7 @@ function dogToRow(d) {
     comb_head: nz(d.combHead), comb_body: nz(d.combBody),
     notes: nz(d.notes), photos: normalizePhotos(d.photos), vaccines: d.vaccines || {},
     care: d.care || {},
+    pending: !!d.pending, cut_request: nz(d.cutRequest),
     updated_at: nz(d.updatedAt),
   };
 }
@@ -233,6 +238,24 @@ export const store = {
     const { error } = await sb.from('dogs').upsert(dogToRow(dog));
     if (error) { toast(t('save_failed') + ': ' + error.message); throw error; }
   },
+  /** Dogs registered on the entrance tablet that the shop hasn't reviewed yet. */
+  pendingDogs() {
+    return this.data.dogs
+      .filter((d) => d.pending)
+      .sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : -1)); // newest first
+  },
+  /** Dogs that belong in the normal list (everything except unreviewed ones). */
+  approvedDogs() { return this.data.dogs.filter((d) => !d.pending); },
+
+  /** Clear the pending flag — the dog joins the normal list. */
+  async approveDog(id) {
+    const dog = this.getDog(id);
+    if (!dog) return;
+    dog.pending = false;
+    const { error } = await sb.from('dogs').update({ pending: false }).eq('id', id);
+    if (error) { dog.pending = true; toast(t('save_failed')); throw error; }
+  },
+
   async deleteDog(id) {
     this.data.dogs = this.data.dogs.filter((d) => d.id !== id);
     this.data.appointments = this.data.appointments.filter((a) => a.dogId !== id);

@@ -21,6 +21,7 @@
   <!-- Custom styles -->
   <link rel="stylesheet" href="css/style.css" />
   <link rel="stylesheet" href="css/themes.css" />
+  <link rel="stylesheet" href="css/kiosk.css" />
 
   <!-- Apply the saved theme BEFORE the body paints (no flash of wrong theme) -->
   <script>
@@ -123,6 +124,9 @@
         </div>
         <button class="btn btn-link btn-clear-filters" data-action="clear-filters" data-i18n="clear_filters">Clear filters</button>
       </div>
+
+      <!-- New dogs registered on the entrance tablet, waiting for review -->
+      <div id="pendingPanel" class="pending-panel d-none"></div>
 
       <!-- Upcoming appointments widget -->
       <div id="upcomingWrap" class="upcoming d-none">
@@ -255,6 +259,23 @@
         </div>
       </div>
 
+      <!-- Entrance tablet (kiosk mode) -->
+      <div class="card soft-card">
+        <div class="card-body">
+          <strong data-i18n="kiosk_title">Entrance tablet</strong>
+          <p class="text-muted small mb-3 mt-1" data-i18n="kiosk_desc">Turn this device into a welcome screen for customers.</p>
+          <div class="field mb-3">
+            <label class="form-label" for="kioskPinInput" data-i18n="kiosk_pin_label">PIN to exit kiosk (4 digits)</label>
+            <input id="kioskPinInput" class="form-control" type="text" inputmode="numeric"
+                   maxlength="4" pattern="[0-9]*" autocomplete="off" style="max-width:150px" />
+          </div>
+          <button class="btn btn-primary" data-action="start-kiosk">
+            <i class="ti ti-device-tablet"></i><span data-i18n="kiosk_start">Start kiosk mode</span>
+          </button>
+          <p class="text-muted small mb-0 mt-3" data-i18n="kiosk_lock_tip">Tip: also turn on Guided Access (iPad) or screen pinning (Android).</p>
+        </div>
+      </div>
+
       <!-- Account -->
       <div class="card soft-card">
         <div class="card-body">
@@ -325,6 +346,12 @@
       <div id="modalFoot" class="modal-shell__foot"></div>
     </div>
   </div>
+
+  <!-- ====================== KIOSK (entrance tablet) ======================
+       Covers the whole app when this device is set up as the welcome screen.
+       Its screens are rendered by js/kiosk.js. -->
+  <div id="kioskRoot" class="kiosk d-none"></div>
+  <div id="kioskPin" class="kiosk-pin d-none"></div>
 
   <!-- ====================== TOAST ====================== -->
   <div id="toast" class="toast-bubble d-none"></div>
