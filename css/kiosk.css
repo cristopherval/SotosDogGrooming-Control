@@ -165,59 +165,68 @@ body.kiosk-on { overflow: hidden; }
   margin: 0;
 }
 
-/* ---- Three big photos of real dogs from the shop's gallery ---- */
+/* ---- The split: brand on one half, the two choices on the other ---- */
 
-.kiosk-dogs {
+/* Narrow or portrait screens (phone, tablet held upright) stack the same
+   markup instead — a 50/50 split needs width to breathe. */
+.kiosk-split {
   display: flex;
-  justify-content: center;
+  flex-direction: column;
   align-items: center;
-  gap: clamp(10px, 2.2vmin, 28px);
-  margin: clamp(4px, 1.4vmin, 16px) 0;
+  gap: clamp(10px, 2vmin, 22px);
 }
-.kiosk-dogs__item {
-  width: clamp(96px, 18vmin, 196px);
-  height: clamp(96px, 18vmin, 196px);
-  border-radius: 50%;
-  object-fit: cover;
-  background: var(--k-sky-soft);
-  border: 5px solid var(--k-white);
-  box-shadow: 0 8px 26px rgba(27, 110, 142, .18);
-  animation: kiosk-float 5.5s ease-in-out infinite;
+.kiosk-split__visual,
+.kiosk-split__panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: clamp(8px, 1.6vmin, 18px);
+  min-width: 0;
 }
-/* Accent rings from the logo. The slot classes are assigned in JS rather than
-   with :nth-child, because a photo whose file is missing gets dropped and the
-   next one takes its place — positional selectors would mis-size the row. */
-.kiosk-dogs__item--a { outline: 3px solid var(--k-sky);  outline-offset: -9px; animation-delay: 0s; }
-.kiosk-dogs__item--b { outline: 4px solid var(--k-teal); outline-offset: -11px; animation-delay: .9s; }
-.kiosk-dogs__item--c { outline: 3px solid var(--k-pink); outline-offset: -9px; animation-delay: 1.8s; }
 
-/* The middle one is the hero. */
-.kiosk-dogs__item--b {
-  width: clamp(120px, 23vmin, 244px);
-  height: clamp(120px, 23vmin, 244px);
+/* Cut-out photo: real transparency, so no card or frame around it —
+   the dogs simply stand on the background. */
+.kiosk-hero {
+  max-width: 100%;
+  /* Height-first, because the photo is tall and portrait: on a landscape
+     tablet, sizing by width alone would make it taller than the screen. */
+  max-height: min(52vh, 460px);
+  width: auto;
+  object-fit: contain;
+  filter: drop-shadow(0 16px 26px rgba(27, 110, 142, .26));
+  animation: kiosk-float 6s ease-in-out infinite;
 }
 
 @keyframes kiosk-float {
   0%, 100% { transform: translateY(0); }
-  50%      { transform: translateY(-11px); }
+  50%      { transform: translateY(-10px); }
 }
 
-@media (max-width: 560px) {
-  .kiosk-dogs { gap: 8px; }
-  .kiosk-dogs__item { width: 80px; height: 80px; border-width: 4px; }
-  .kiosk-dogs__item--b { width: 100px; height: 100px; }
+/* Tablet landscape and desktop: the actual half-and-half. */
+@media (min-width: 900px) {
+  .kiosk-split {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    align-items: center;
+    gap: clamp(24px, 4vmin, 64px);
+    width: 100%;
+  }
+  .kiosk-split__panel {
+    align-items: flex-start;
+    text-align: left;
+  }
+  .kiosk-hero { max-height: min(74vh, 620px); }
+
+  /* Each half is narrower than the full screen, so the choices stack. */
+  .kiosk-choices { flex-direction: column; max-width: none; }
 }
 
-/* A tablet in landscape is short. Shrink the decoration before the text. */
-@media (max-height: 760px) {
-  .kiosk-logo { width: 92px; height: 92px; }
-  .kiosk-dogs__item { width: 118px; height: 118px; }
-  .kiosk-dogs__item--b { width: 146px; height: 146px; }
+/* A short landscape tablet: give the photo less height so nothing clips. */
+@media (max-height: 700px) {
+  .kiosk-logo { width: 78px; height: 78px; }
+  .kiosk-hero { max-height: 54vh; }
 }
-@media (max-height: 600px) {
-  .kiosk-logo { width: 70px; height: 70px; }
-  .kiosk-dogs__item { width: 92px; height: 92px; }
-  .kiosk-dogs__item--b { width: 112px; height: 112px; }
+@media (max-height: 560px) {
   .kiosk-welcome__tagline { display: none; }
 }
 
@@ -688,7 +697,7 @@ body.kiosk-on { overflow: hidden; }
 
 /* Someone who asked for less motion gets a still, but still colourful, page. */
 @media (prefers-reduced-motion: reduce) {
-  .kiosk-dogs__item,
+  .kiosk-hero,
   .kiosk-logo,
   .kiosk-thanks__ico { animation: none; }
   .kiosk-bubble { display: none; }

@@ -189,7 +189,7 @@ function wireAuth() {
       return;
     }
     $('#loginPassword').value = '';
-    await bootApp();
+    await bootApp({ fromLogin: true });
   });
 }
 
@@ -223,8 +223,15 @@ function backFromKiosk() {
   showView(currentView);
 }
 
-/** Hydrate from Supabase and show the app. */
-async function bootApp() {
+/**
+ * Hydrate from Supabase and show the app.
+ *
+ * `fromLogin` is true when someone just typed the email and password. Whoever
+ * does that is staff, so they always land in the system — never in the kiosk,
+ * even on the entrance tablet. The kiosk setting is left alone, so the tablet
+ * still comes back up as the welcome screen on its next reload.
+ */
+async function bootApp({ fromLogin = false } = {}) {
   hideLogin();
   try {
     await store.init();
@@ -238,7 +245,8 @@ async function bootApp() {
   if (emailEl && user) emailEl.textContent = user.email || '';
   showView('dogs');
   // This device is the entrance tablet: cover the app with the welcome screen.
-  if (isKioskOn()) enterKiosk(backFromKiosk);
+  // Skipped right after a manual sign-in — see the note above.
+  if (!fromLogin && isKioskOn()) enterKiosk(backFromKiosk);
 }
 
 // ---------------- One-time local→cloud migration ----------------

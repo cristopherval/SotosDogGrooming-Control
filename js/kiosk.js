@@ -19,6 +19,9 @@ import { $, $$, escapeHtml, fmtDate } from './utils.js';
 import { CARE_OPTIONS, careLabels, combLabel } from './dogs.js';
 
 const LOGO = 'icons/logosotos.jpg';
+// Cut-out shot of three dogs (real transparency, so it sits straight on the
+// background with no photo box around it).
+const HERO = 'img/welcome-dogs.webp';
 const DEFAULT_PIN = '1234';
 
 // Send the tablet back to the welcome screen if a customer walks away
@@ -96,76 +99,47 @@ function resetIdle() {
 
 // ---------------- 1. Welcome ----------------
 
-/** Three real dogs from the shop's gallery — decoration only, no names. */
-function welcomePhotos() {
-  const withPhoto = store.approvedDogs()
-    .map(photoOf)
-    .filter(Boolean);
-  // Shuffle so the row looks different through the day.
-  for (let i = withPhoto.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [withPhoto[i], withPhoto[j]] = [withPhoto[j], withPhoto[i]];
-  }
-  // Pull a couple of spares: any photo whose URL 404s is dropped on load, and
-  // we'd still like to end up showing three.
-  return withPhoto.slice(0, 6);
-}
-
 export function renderWelcome() {
-  const pics = welcomePhotos();
+  // Split screen on anything tablet-landscape and wider: the brand on one
+  // half, the two choices on the other. On a narrow or portrait screen the
+  // CSS stacks the same markup instead.
   screen(`
     <div class="kiosk__screen kiosk-centred kiosk-welcome">
-      <img class="kiosk-logo" src="${LOGO}" alt="Soto's Dog Grooming" />
+      <div class="kiosk-split">
 
-      <div class="kiosk-welcome__hi">${escapeHtml(t('k_welcome'))}</div>
-      <h1 class="kiosk-welcome__shop">Soto's Dog Grooming</h1>
-      <p class="kiosk-welcome__tagline">${escapeHtml(t('k_tagline'))}</p>
+        <div class="kiosk-split__visual">
+          <img class="kiosk-logo" src="${LOGO}" alt="Soto's Dog Grooming" />
+          <img class="kiosk-hero" src="${HERO}" alt="" />
+        </div>
 
-      <div class="kiosk-dogs" id="kDogs">
-        ${pics.map((src) => `<img class="kiosk-dogs__item" src="${escapeHtml(src)}" alt="" />`).join('')}
+        <div class="kiosk-split__panel">
+          <div class="kiosk-welcome__hi">${escapeHtml(t('k_welcome'))}</div>
+          <h1 class="kiosk-welcome__shop">Soto's Dog Grooming</h1>
+          <p class="kiosk-welcome__tagline">${escapeHtml(t('k_tagline'))}</p>
+
+          <div class="kiosk-choices">
+            <button class="kiosk-choice kiosk-choice--new" id="kNew">
+              <i class="ti ti-plus"></i>
+              <span>${escapeHtml(t('k_new_dog'))}</span>
+            </button>
+            <button class="kiosk-choice kiosk-choice--find" id="kFind">
+              <i class="ti ti-search"></i>
+              <span>${escapeHtml(t('k_find_dog'))}</span>
+            </button>
+          </div>
+
+          <button class="kiosk-exitbtn" id="kExit">
+            <i class="ti ti-lock"></i>${escapeHtml(t('k_exit_system'))}
+          </button>
+        </div>
+
       </div>
-
-      <div class="kiosk-choices">
-        <button class="kiosk-choice kiosk-choice--new" id="kNew">
-          <i class="ti ti-plus"></i>
-          <span>${escapeHtml(t('k_new_dog'))}</span>
-        </button>
-        <button class="kiosk-choice kiosk-choice--find" id="kFind">
-          <i class="ti ti-search"></i>
-          <span>${escapeHtml(t('k_find_dog'))}</span>
-        </button>
-      </div>
-
-      <button class="kiosk-exitbtn" id="kExit">
-        <i class="ti ti-lock"></i>${escapeHtml(t('k_exit_system'))}
-      </button>
     </div>`, (el) => {
     // NOTE: these must be wrapped, not passed straight as the handler.
     // `onclick = renderSearch` would hand the click event to renderSearch as
     // its `prefill` argument, and the box would open showing "[object PointerEvent]".
     $('#kNew', el).onclick = () => renderForm();
     $('#kFind', el).onclick = () => renderSearch();
-
-    // Show exactly three photos. A few spares are rendered hidden: a photo
-    // whose file is gone from Storage would otherwise leave a blank grey
-    // circle (which is what the first screenshot showed), so when one fails
-    // to load it is dropped and the next spare slides into its slot.
-    // Hidden images still load, so their errors are known straight away.
-    const row = $('#kDogs', el);
-    const imgs = [...row.querySelectorAll('.kiosk-dogs__item')];
-    const SLOTS = ['kiosk-dogs__item--a', 'kiosk-dogs__item--b', 'kiosk-dogs__item--c'];
-    const layout = () => {
-      const alive = imgs.filter((img) => !img.dataset.broken);
-      alive.forEach((img, i) => {
-        img.classList.remove(...SLOTS);
-        if (i < SLOTS.length) { img.classList.add(SLOTS[i]); img.style.display = ''; }
-        else img.style.display = 'none';
-      });
-    };
-    imgs.forEach((img) => {
-      img.addEventListener('error', () => { img.dataset.broken = '1'; layout(); });
-    });
-    layout();
 
     // Three ways for staff to get out, all of them behind the PIN:
     // the visible button, three taps on the logo, and the hidden corner.
