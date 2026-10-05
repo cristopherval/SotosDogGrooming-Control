@@ -589,6 +589,39 @@ body.kiosk-on { overflow: hidden; }
 .kiosk-note--accent .kiosk-spec__lbl { color: var(--k-pink-deep); }
 .kiosk-note p { margin: 6px 0 0; font-size: clamp(15px, 2.1vmin, 20px); white-space: pre-wrap; }
 
+/* ---- Owner block (dog card only, never the search results) ---- */
+.kiosk-specs--owner { margin-bottom: 6px; }
+.kiosk-hint--owner {
+  margin: 0 0 clamp(10px, 1.7vmin, 18px);
+  text-align: center;
+}
+
+/* ---- Vaccines (read-only for the customer) ---- */
+.kiosk-vax__head {
+  display: inline-flex; align-items: center; gap: 8px;
+  margin-top: 8px; padding: 6px 16px; border-radius: 999px;
+  font-size: clamp(14px, 2vmin, 18px); font-weight: 800;
+}
+.kiosk-vax__head--upToDate { background: #e6f6ec; color: #1b7a3a; border: 2px solid #9fd9b4; }
+.kiosk-vax__head--renewal { background: #fff3e0; color: #a35b00; border: 2px solid #f2c687; }
+.kiosk-vax__head--missing { background: #fdeaea; color: #a32020; border: 2px solid #f0a9a9; }
+
+.kiosk-vax-list { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+.kiosk-vax {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: 12px; flex-wrap: wrap;
+  padding: 10px 14px; border-radius: 14px;
+  border: 2px solid var(--k-line); background: var(--k-white);
+}
+.kiosk-vax__name { font-weight: 800; font-size: clamp(14px, 2vmin, 18px); }
+.kiosk-vax__state { font-size: clamp(13px, 1.8vmin, 16px); color: var(--k-muted); font-weight: 700; }
+/* Only the two that need the customer to do something are coloured; "up to
+   date" stays neutral so the exceptions are what catches the eye. */
+.kiosk-vax--renewal { border-color: #f2c687; background: #fffaf2; }
+.kiosk-vax--renewal .kiosk-vax__state { color: #a35b00; }
+.kiosk-vax--missing { border-color: #f0a9a9; background: #fff7f7; }
+.kiosk-vax--missing .kiosk-vax__state { color: #a32020; }
+
 /* ---------------- New-dog form ---------------- */
 
 .kiosk-form { display: flex; flex-direction: column; gap: clamp(10px, 1.6vmin, 16px); }

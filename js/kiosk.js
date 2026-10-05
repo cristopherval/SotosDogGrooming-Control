@@ -15,8 +15,9 @@
 // Access / screen pinning, as SUPABASE_SETUP.md explains.
 import { store, normalizePhotos, firstPhoto } from './store.js';
 import { t } from './i18n.js';
-import { $, $$, escapeHtml, fmtDate } from './utils.js';
+import { $, $$, escapeHtml, fmtDate, addMonths, todayISO } from './utils.js';
 import { CARE_OPTIONS, careLabels, combLabel } from './dogs.js';
+import { dogVaccineStatus, statusMeta } from './vaccines.js';
 
 // Cut-out shot of three dogs (real transparency, so it sits straight on the
 // background with no photo box around it).
@@ -312,6 +313,50 @@ function wireCarousel(box) {
 
 // ---------------- 3. Dog card (read-only) ----------------
 
+/**
+ * Read-only vaccine summary for the customer: the overall state, then each
+ * vaccine with the date it runs out. The point is that someone standing at the
+ * door sees "Rabies — expires 03/12/2026" for themselves and brings the record
+ * in, instead of the front desk having to chase them for it.
+ */
+function vaccinesHTML(dog) {
+  const catalog = store.data.vaccineCatalog;
+  if (!catalog.length) return ''; // shop doesn't track vaccines
+  const records = dog.vaccines || {};
+  const meta = statusMeta(dogVaccineStatus(dog));
+
+  const rows = catalog.map((vax) => {
+    const rec = records[vax.id];
+    let state;
+    let cls;
+    if (!rec || !rec.date) {
+      state = t('not_applied');
+      cls = 'missing';
+    } else {
+      const expiry = addMonths(rec.date, vax.months);
+      const expired = expiry < todayISO();
+      state = expired
+        ? `${t('expired')} · ${fmtDate(expiry)}`
+        : `${t('valid_until')} ${fmtDate(expiry)}`;
+      cls = expired ? 'renewal' : 'upToDate';
+    }
+    return `
+      <div class="kiosk-vax kiosk-vax--${cls}">
+        <span class="kiosk-vax__name">${escapeHtml(vax.name)}</span>
+        <span class="kiosk-vax__state">${escapeHtml(state)}</span>
+      </div>`;
+  }).join('');
+
+  return `
+    <div class="kiosk-note">
+      <div class="kiosk-spec__lbl">${escapeHtml(t('vaccines'))}</div>
+      <div class="kiosk-vax__head kiosk-vax__head--${meta.cls}">
+        <i class="ti ${meta.icon}"></i> ${escapeHtml(t(meta.key))}
+      </div>
+      <div class="kiosk-vax-list">${rows}</div>
+    </div>`;
+}
+
 function renderCard(dog) {
   const pic = photoOf(dog);
   const sub = [dog.breed, dog.color, dog.sex && t(dog.sex.toLowerCase())].filter(Boolean).join(' · ');
@@ -324,6 +369,15 @@ function renderCard(dog) {
     </div>`;
 
   const hasSpecs = dog.bladeHead || dog.bladeBody || dog.combHead || dog.combBody;
+
+  // Owner block. Only on THIS screen, never on the search results: here the
+  // customer has already picked their own dog, whereas the results list would
+  // let anyone type a common surname and read off who owns which dog.
+  // The phone is shown so they can tell us on the spot when it's out of date —
+  // it's the field that goes stale most and the one needed to call them when
+  // the dog is ready.
+  const owner = [dog.ownerFirst, dog.ownerLast].filter(Boolean).join(' ');
+  const hasOwner = !!(owner || dog.phone);
 
   screen(`
     <div class="kiosk__screen">
@@ -341,6 +395,15 @@ function renderCard(dog) {
           ${dog.birthday ? `<div class="kiosk-card__sub"><i class="ti ti-cake"></i> ${escapeHtml(fmtDate(dog.birthday))}</div>` : ''}
         </div>
       </div>
+
+      ${hasOwner ? `
+        <div class="kiosk-specs kiosk-specs--owner">
+          ${spec(t('owner'), owner)}
+          ${spec(t('phone'), dog.phone)}
+        </div>
+        <p class="kiosk-hint kiosk-hint--owner">${escapeHtml(t('k_owner_check'))}</p>` : ''}
+
+      ${vaccinesHTML(dog)}
 
       ${hasSpecs ? `
         <div class="kiosk-specs">
