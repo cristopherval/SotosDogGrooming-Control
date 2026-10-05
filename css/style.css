@@ -289,8 +289,13 @@ input, select, textarea, .form-control, .form-select { font-size: 16px !importan
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 40;
   display: flex; justify-content: space-around;
   background: var(--surface); border-top: 1px solid var(--border);
-  padding: 6px 8px calc(6px + env(safe-area-inset-bottom));
-  max-width: 760px; margin: 0 auto;
+  /* The BAR spans the whole window; its ITEMS stay in the same centred column
+     as the content above. Capping the bar itself at 760px (as it used to) left
+     the page scrolling visibly past it on either side of a desktop screen,
+     and letting the items spread the full width would fling them to the far
+     corners of a wide monitor. The 760px matches .search-bar below. */
+  padding-block: 6px calc(6px + env(safe-area-inset-bottom));
+  padding-inline: max(8px, calc((100% - 760px) / 2));
 }
 .bottom-nav__item {
   flex: 1; background: none; border: none; color: var(--text-muted);
