@@ -506,10 +506,34 @@ export const store = {
       const head = group[0];
       const client = await this.resolveClient(head.ownerFirst, head.ownerLast, head.phone);
       const ids = group.map((d) => d.id);
-      group.forEach((d) => { d.clientId = client.id; });
-      const { error } = await sb.from('dogs').update({ client_id: client.id }).in('id', ids);
+      // Write the projection along with the link. Dogs in one group match on
+      // `clientKey`, which ignores case and accents, so their stored spelling
+      // can still differ ("maria lopez" vs "María López"). Normalizing them now
+      // leaves the database already satisfying the invariant instead of drifting
+      // until someone happens to edit that client.
+      const prev = group.map((d) => ({ d, ownerFirst: d.ownerFirst, ownerLast: d.ownerLast, phone: d.phone }));
+      group.forEach((d) => {
+        d.clientId = client.id;
+        d.ownerFirst = client.firstName;
+        d.ownerLast = client.lastName;
+        d.phone = client.phone;
+      });
+      const { error } = await sb.from('dogs')
+        .update({
+          client_id: client.id,
+          owner_first: nz(client.firstName),
+          owner_last: nz(client.lastName),
+          phone: nz(client.phone),
+        })
+        .in('id', ids);
       if (error) {
-        group.forEach((d) => { d.clientId = ''; }); // roll the link back in memory
+        // roll the whole group back in memory, link and projection alike
+        prev.forEach((p) => {
+          p.d.clientId = '';
+          p.d.ownerFirst = p.ownerFirst;
+          p.d.ownerLast = p.ownerLast;
+          p.d.phone = p.phone;
+        });
         toast(t('save_failed')); throw error;
       }
       n++;
