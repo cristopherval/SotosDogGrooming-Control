@@ -159,18 +159,27 @@
       </div>
     </section>
 
-    <!-- ---------- VIEW: EMPLOYEES ---------- -->
-    <section class="view d-none" data-view="employees">
+    <!-- ---------- VIEW: CLIENTS ---------- -->
+    <section class="view d-none" data-view="clients">
       <div class="view-head">
-        <h1 class="view-title" data-i18n="nav_employees">Employees</h1>
-        <button class="btn btn-primary btn-add" data-action="add-employee">
-          <i class="ti ti-plus"></i><span data-i18n="add_employee">Add Employee</span>
+        <h1 class="view-title" data-i18n="clients_title">Clients</h1>
+        <button class="btn btn-primary btn-add" data-action="add-client">
+          <i class="ti ti-plus"></i><span data-i18n="add_client">Add Client</span>
         </button>
       </div>
-      <div id="employeeList" class="card-grid"></div>
-      <div id="employeeEmpty" class="empty-state d-none">
+
+      <div class="search-bar">
+        <div class="input-icon search-bar__input">
+          <span class="input-icon-addon"><i class="ti ti-search"></i></span>
+          <input id="clientSearch" type="search" class="form-control" data-i18n-ph="clients_search_ph"
+                 placeholder="Search client or phone…" autocomplete="off" />
+        </div>
+      </div>
+
+      <div id="clientList" class="card-grid"></div>
+      <div id="clientEmpty" class="empty-state d-none">
         <i class="ti ti-users"></i>
-        <p data-i18n="no_employees">No employees yet.</p>
+        <p data-i18n="no_clients">No clients yet. Tap “Add Client” to start.</p>
       </div>
     </section>
 
@@ -202,12 +211,38 @@
         </div>
       </div>  
 
+      <!-- Link existing owners as clients (only while some dog is still unlinked) -->
+      <div id="backfillCard" class="card soft-card d-none">
+        <div class="card-body">
+          <strong data-i18n="backfill_title">Link existing owners</strong>
+          <p class="text-muted small mb-3 mt-1" data-i18n="backfill_desc">The owners typed on your dogs are not clients yet.</p>
+          <button id="backfillBtn" class="btn btn-primary" data-action="backfill-clients">
+            <i class="ti ti-users-plus"></i><span data-i18n="backfill_btn">Create clients</span>
+          </button>
+        </div>
+      </div>
+
       <!-- Stats -->
       <div class="stats-grid">
         <div class="card soft-card stat"><i class="ti ti-dog stat__ico"></i><div><div id="statDogs" class="stat__num">0</div><div class="stat__lbl" data-i18n="stat_dogs">Total Dogs</div></div></div>
-        <div class="card soft-card stat"><i class="ti ti-users stat__ico"></i><div><div id="statEmployees" class="stat__num">0</div><div class="stat__lbl" data-i18n="stat_employees">Total Employees</div></div></div>
+        <div class="card soft-card stat"><i class="ti ti-users stat__ico"></i><div><div id="statClients" class="stat__num">0</div><div class="stat__lbl" data-i18n="stat_clients">Total Clients</div></div></div>
         <div class="card soft-card stat"><i class="ti ti-calendar stat__ico"></i><div><div id="statAppointments" class="stat__num">0</div><div class="stat__lbl" data-i18n="stat_appointments">Total Appointments</div></div></div>
         <div class="card soft-card stat"><i class="ti ti-photo stat__ico"></i><div><div id="statPhotos" class="stat__num">0</div><div class="stat__lbl" data-i18n="stat_photos">Total Photos</div></div></div>
+      </div>
+
+      <!-- Employees (used once in a while, so it lives here and not in the nav) -->
+      <div class="card soft-card">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <strong data-i18n="nav_employees">Employees</strong>
+            <button class="btn btn-sm btn-primary" data-action="add-employee"><i class="ti ti-plus"></i><span data-i18n="add">Add</span></button>
+          </div>
+          <div id="employeeList" class="emp-list"></div>
+          <div id="employeeEmpty" class="empty-state empty-state--sm d-none">
+            <i class="ti ti-users"></i>
+            <p data-i18n="no_employees">No employees yet.</p>
+          </div>
+        </div>
       </div>
 
       <!-- Vaccine catalog -->
@@ -300,11 +335,11 @@
     <button class="bottom-nav__item is-active" data-nav="dogs">
       <i class="ti ti-dog"></i><span data-i18n="nav_dogs">Dogs</span>
     </button>
+    <button class="bottom-nav__item" data-nav="clients">
+      <i class="ti ti-users"></i><span data-i18n="nav_clients">Clients</span>
+    </button>
     <button class="bottom-nav__item" data-nav="appointments">
       <i class="ti ti-clipboard-list"></i><span data-i18n="nav_appointments">Visits</span>
-    </button>
-    <button class="bottom-nav__item" data-nav="employees">
-      <i class="ti ti-users"></i><span data-i18n="nav_employees">Employees</span>
     </button>
     <button class="bottom-nav__item" data-nav="settings">
       <i class="ti ti-settings"></i><span data-i18n="nav_settings">Settings</span>

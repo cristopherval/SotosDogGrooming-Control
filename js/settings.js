@@ -3,11 +3,12 @@ import { store } from './store.js';
 import { t, applyTranslations, getLang } from './i18n.js';
 import { $, $$, confirmDialog, toast } from './utils.js';
 import { renderCatalog } from './vaccines.js';
+import { renderEmployees } from './employees.js';
 
 export function renderSettings() {
   const s = store.stats();
   $('#statDogs').textContent = s.dogs;
-  $('#statEmployees').textContent = s.employees;
+  $('#statClients').textContent = s.clients;
   $('#statAppointments').textContent = s.appointments;
   $('#statPhotos').textContent = s.photos;
 
@@ -15,7 +16,12 @@ export function renderSettings() {
   const migrateCard = $('#migrateCard');
   if (migrateCard) migrateCard.classList.toggle('d-none', !store.hasLocalData());
 
+  // show the owner→client migration only while some dog is still unlinked
+  const backfillCard = $('#backfillCard');
+  if (backfillCard) backfillCard.classList.toggle('d-none', !store.needsClientBackfill());
+
   renderCatalog();
+  renderEmployees(); // employees live in this view now, not in the bottom nav
   markActiveLang();
 }
 

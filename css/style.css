@@ -198,6 +198,40 @@ input, select, textarea, .form-control, .form-select { font-size: 16px !importan
 .dot-inactive { background: rgba(122,129,148,.14); color: var(--text-muted); }
 .emp-card__actions { display: flex; gap: 8px; margin-top: 12px; }
 
+/* Employees moved inside a Settings card, so the rows sit on the inner surface
+   and drop their own shadow — nested cards would read as a stack of boxes. */
+.emp-list { display: grid; grid-template-columns: 1fr; gap: 10px; }
+.emp-list .emp-card { background: var(--surface-2); box-shadow: none; }
+@media (min-width: 1024px) { .emp-list { grid-template-columns: 1fr 1fr; } }
+
+/* ---------------- Client card ---------------- */
+.client-card {
+  display: flex; gap: 12px; align-items: center;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 12px; box-shadow: var(--shadow);
+  cursor: pointer; transition: transform .12s ease;
+}
+.client-card:active { transform: scale(.985); }
+.client-card__avatar {
+  width: 58px; height: 58px; border-radius: 16px; flex-shrink: 0;
+  background: var(--brand-soft); color: var(--brand);
+  display: grid; place-items: center; font-weight: 700; font-size: 20px;
+}
+.client-card__body { flex: 1; min-width: 0; }
+/* Truncate rather than overflow: names like "Jennifer Trackeray" would spill
+   out of a narrow card on a phone. */
+.client-card__name,
+.client-card__dogs,
+.client-card__phone { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.client-card__name { font-weight: 700; font-size: 16px; }
+.client-card__dogs { color: var(--text-muted); font-size: 13px; margin-top: 2px; }
+.client-card__phone { color: var(--text-muted); font-size: 12px; margin-top: 2px; }
+.client-card__count {
+  flex-shrink: 0; min-width: 26px; height: 26px; border-radius: 13px;
+  background: var(--brand-soft); color: var(--brand); padding: 0 8px;
+  font-size: 12px; font-weight: 700; display: grid; place-items: center;
+}
+
 /* ---------------- Quick contact buttons ---------------- */
 .btn-wa { background: var(--wa); border-color: var(--wa); color: #fff; }
 .btn-wa:hover { background: var(--wa-dark); color: #fff; }
@@ -245,6 +279,10 @@ input, select, textarea, .form-control, .form-select { font-size: 16px !importan
 /* ---------------- Empty state ---------------- */
 .empty-state { text-align: center; padding: 48px 16px; color: var(--text-muted); }
 .empty-state i { font-size: 48px; opacity: .5; display: block; margin-bottom: 8px; }
+/* Inside a Settings card there is no room for the full-page version. */
+.empty-state--sm { padding: 18px 8px; font-size: 14px; }
+.empty-state--sm i { font-size: 30px; margin-bottom: 4px; }
+.empty-state--sm p { margin-bottom: 0; }
 
 /* ---------------- Bottom nav ---------------- */
 .bottom-nav {
@@ -526,12 +564,25 @@ input, select, textarea, .form-control, .form-select { font-size: 16px !importan
   background: var(--brand-soft); color: var(--brand); display: grid; place-items: center; font-size: 40px;
 }
 .profile-hero__avatar img { width: 100%; height: 100%; object-fit: cover; }
+/* A client has no photo, so the hero shows their initials instead. */
+.profile-hero__avatar--initials { font-size: 34px; font-weight: 700; }
 .profile-hero__name { font-size: 20px; font-weight: 800; }
 .profile-hero__sub { color: var(--text-muted); font-size: 13px; }
 .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 14px 0; }
 .info-box { background: var(--surface-2); border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px; }
 .info-box__lbl { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .03em; }
 .info-box__val { font-weight: 600; font-size: 14px; }
+/* An info box that navigates somewhere (the dog's owner -> their client). */
+.info-box--link { cursor: pointer; border-color: var(--brand); }
+.info-box--link:active { background: var(--brand-soft); }
+.info-box--link .info-box__val { display: flex; align-items: center; justify-content: space-between; gap: 6px; color: var(--brand); }
+
+/* Inline "new client" row inside the dog form. It expands here instead of
+   opening a modal, which would replace the dog form and lose its photos. */
+.newclient-box {
+  background: var(--surface-2); border: 1px solid var(--border);
+  border-radius: 12px; padding: 12px; margin-bottom: 14px;
+}
 .section-title { font-weight: 700; font-size: 15px; margin: 18px 0 10px; display: flex; align-items: center; gap: 8px; }
 .section-title--sm { font-size: 13px; margin: 12px 0 8px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .03em; }
 .photo-section { margin-bottom: 14px; }
@@ -681,6 +732,12 @@ input, select, textarea, .form-control, .form-select { font-size: 16px !importan
   .dog-card__name { font-size: 18px; }
   .dog-card__sub { font-size: 14px; }
   .dog-card__owner { font-size: 13px; margin-top: 3px; }
+
+  .client-card { padding: 16px; gap: 14px; }
+  .client-card__avatar { width: 76px; height: 76px; border-radius: 20px; font-size: 26px; }
+  .client-card__name { font-size: 18px; }
+  .client-card__dogs { font-size: 14px; }
+  .client-card__phone { font-size: 13px; }
 
   /* With the extra width these read better as one row than as a 2x2 block. */
   .filter-grid { grid-template-columns: repeat(4, 1fr); }

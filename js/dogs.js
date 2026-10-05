@@ -1,15 +1,17 @@
 // dogs.js — home list, smart search, advanced filters, dog form, profile, timeline, badges
-import { store, normalizePhotos, firstPhoto } from './store.js';
+import { store, normalizePhotos, firstPhoto, clientName } from './store.js';
 import { t, getLang } from './i18n.js';
 import {
   $, $$, openModal, closeModal, confirmDialog, chooseDialog, toast, escapeHtml, initials,
   readImageResized, optionsFrom, waLink, smsLink, telLink, fmtDate, fmtTime, durationLabel, todayISO, openLightbox, money,
+  cleanPhone, normText,
 } from './utils.js';
 import {
   dogVaccineStatus, statusMeta, renderVaccineChecklist, bindVaccineChecklist,
 } from './vaccines.js';
 import { openVisitForm, serviceLabels, markDeparture } from './appointments.js';
 import { openDogSheet } from './print.js';
+import { openClientProfile } from './clients.js';
 
 // in-memory filter state for the home view
 const filters = { search: '', breed: '', color: '', sex: '', status: '' };
@@ -337,6 +339,14 @@ export function openDogForm(id) {
   const emps = store.data.employees.slice().sort((a, b) => a.fullName.localeCompare(b.fullName));
   const empOpts = optionsFrom(emps.map((e) => ({ value: e.id, label: e.fullName })), d ? (d.employeeId || '') : '', t('select'));
 
+  // Owner = a client row. A dog saved before the migration (or registered on
+  // the entrance tablet and not approved yet) still carries plain owner text
+  // instead; we show it, and the save path preserves it, so editing such a dog
+  // can never silently wipe its owner off the cards and the printed sheet.
+  const pickedClient = d && d.clientId ? store.getClient(d.clientId) : null;
+  const legacyOwner = d && !pickedClient ? [d.ownerFirst, d.ownerLast].filter(Boolean).join(' ') : '';
+  const hasLegacyOwner = !!(d && !pickedClient && (legacyOwner || d.phone));
+
   openModal({
     title: d ? t('dog_edit') : t('dog_new'),
     bodyHTML: `
@@ -371,14 +381,37 @@ export function openDogForm(id) {
       </div>
 
       <label class="form-label" style="margin-top:6px">${escapeHtml(t('owner_info'))}</label>
-      <div class="form-row">
-        <div class="field"><label class="form-label">${escapeHtml(t('owner_first'))}</label>
-          <input id="dOwnerF" class="form-control" value="${d ? escapeHtml(d.ownerFirst || '') : ''}" /></div>
-        <div class="field"><label class="form-label">${escapeHtml(t('owner_last'))}</label>
-          <input id="dOwnerL" class="form-control" value="${d ? escapeHtml(d.ownerLast || '') : ''}" /></div>
+      <div class="field">
+        <div class="dog-combo">
+          <span class="input-icon-addon dog-combo__ico"><i class="ti ti-search"></i></span>
+          <input type="text" id="dClientSearch" class="form-control dog-combo__input"
+                 placeholder="${escapeHtml(t('choose_client'))}" autocomplete="off"
+                 value="${escapeHtml(pickedClient ? clientName(pickedClient) : '')}" />
+          <input type="hidden" id="dClient" value="${escapeHtml(pickedClient ? pickedClient.id : '')}" />
+          <div class="dog-combo__list d-none" id="dClientList"></div>
+        </div>
       </div>
-      <div class="field"><label class="form-label">${escapeHtml(t('phone'))}</label>
-        <input id="dPhone" class="form-control" type="tel" inputmode="tel" value="${d ? escapeHtml(d.phone || '') : ''}" /></div>
+
+      <button type="button" class="btn btn-outline-primary w-100" id="dNewClientToggle" style="margin-bottom:14px">
+        <i class="ti ti-user-plus"></i> ${escapeHtml(t('new_client'))}
+      </button>
+      <div id="dNewClient" class="newclient-box d-none">
+        <div class="form-row">
+          <div class="field"><label class="form-label">${escapeHtml(t('owner_first'))}</label>
+            <input id="dOwnerF" class="form-control" autocapitalize="words" /></div>
+          <div class="field"><label class="form-label">${escapeHtml(t('owner_last'))}</label>
+            <input id="dOwnerL" class="form-control" autocapitalize="words" /></div>
+        </div>
+        <div class="field" style="margin-bottom:0"><label class="form-label">${escapeHtml(t('phone'))}</label>
+          <input id="dPhone" class="form-control" type="tel" inputmode="tel" /></div>
+      </div>
+
+      ${hasLegacyOwner ? `
+      <div class="info-box" style="margin-bottom:14px">
+        <div class="info-box__lbl">${escapeHtml(t('legacy_owner'))}</div>
+        <div class="info-box__val">${escapeHtml([legacyOwner, d.phone].filter(Boolean).join(' · '))}</div>
+        <div class="text-muted small" style="margin-top:4px">${escapeHtml(t('legacy_owner_hint'))}</div>
+      </div>` : ''}
 
       <div class="field"><label class="form-label">${escapeHtml(t('attended_by'))}</label>
         <select id="dEmp" class="form-select">${empOpts}</select></div>
@@ -476,11 +509,83 @@ export function openDogForm(id) {
       camInput.addEventListener('change', () => addFiles(camInput));
       galInput.addEventListener('change', () => addFiles(galInput));
 
+      // ---- Client picker (same combobox as the visit form's dog picker) ----
+      const cSearch = $('#dClientSearch', body);
+      const cHidden = $('#dClient', body);
+      const cList = $('#dClientList', body);
+      const newBox = $('#dNewClient', body);
+
+      const renderClientOptions = (q = '') => {
+        const ql = normText(q); // accent-insensitive: "lopez" finds "López"
+        const digits = cleanPhone(ql);
+        const matches = store.clientsSorted().filter((c) => {
+          if (!ql) return true;
+          return normText(clientName(c)).includes(ql)
+            || (!!digits && cleanPhone(c.phone).includes(digits));
+        }).slice(0, 50);
+
+        cList.innerHTML = matches.length
+          ? matches.map((c) => `
+              <button type="button" class="dog-combo__opt" data-cid="${escapeHtml(c.id)}">
+                <span class="dog-combo__name">${escapeHtml(clientName(c))}</span>
+                ${c.phone ? `<span class="dog-combo__owner">${escapeHtml(c.phone)}</span>` : ''}
+              </button>`).join('')
+          : `<div class="dog-combo__empty">${escapeHtml(t('no_clients_found'))}</div>`;
+
+        // mousedown (not click) so selection beats the input's blur on mobile
+        $$('[data-cid]', cList).forEach((b) => b.addEventListener('mousedown', (e) => {
+          e.preventDefault();
+          const c = store.getClient(b.getAttribute('data-cid'));
+          cHidden.value = c ? c.id : '';
+          cSearch.value = c ? clientName(c) : '';
+          cList.classList.add('d-none');
+          newBox.classList.add('d-none'); // a picked client beats a typed one
+        }));
+      };
+
+      const openList = () => { renderClientOptions(cSearch.value); cList.classList.remove('d-none'); };
+      cSearch.addEventListener('focus', openList);
+      cSearch.addEventListener('input', () => { cHidden.value = ''; openList(); });
+      cSearch.addEventListener('blur', () => { setTimeout(() => cList.classList.add('d-none'), 150); });
+
+      // "New client" expands inside THIS form on purpose. Opening the client
+      // form as a modal would replace this one (there is a single modal root)
+      // and take the photos already decoded into `photos.list` with it.
+      $('#dNewClientToggle', body).onclick = () => {
+        const opening = newBox.classList.contains('d-none');
+        newBox.classList.toggle('d-none', !opening);
+        if (opening) {
+          cHidden.value = '';
+          cSearch.value = '';
+          $('#dOwnerF', body).focus();
+        }
+      };
+
       foot.querySelector('[data-act="cancel"]').onclick = closeModal;
       const saveBtn = foot.querySelector('[data-act="save"]');
       saveBtn.onclick = async () => {
         const name = $('#dName', body).value.trim();
         if (!name) { toast(t('required_name')); return; }
+
+        // Resolve the owner: a picked client, else the inline "new client" row.
+        let clientId = cHidden.value;
+        const newFirst = $('#dOwnerF', body).value.trim();
+        const newLast = $('#dOwnerL', body).value.trim();
+        const newPhone = $('#dPhone', body).value.trim();
+        if (!clientId && (newFirst || newLast)) {
+          saveBtn.disabled = true;
+          try {
+            clientId = (await store.resolveClient(newFirst, newLast, newPhone)).id;
+          } catch (e) {
+            saveBtn.disabled = false; // store already toasted
+            return;
+          }
+        } else if (!clientId && newPhone) {
+          // A phone with nobody attached to it would be lost silently.
+          toast(t('client_required'));
+          return;
+        }
+
         const dog = {
           id: d ? d.id : store.uid('dog'),
           name,
@@ -488,9 +593,13 @@ export function openDogForm(id) {
           color: $('#dColor', body).value.trim(),
           sex: $('#dSex', body).value,
           birthday: $('#dBday', body).value,
-          ownerFirst: $('#dOwnerF', body).value.trim(),
-          ownerLast: $('#dOwnerL', body).value.trim(),
-          phone: $('#dPhone', body).value.trim(),
+          clientId,
+          // With a client, upsertDog derives these from it. Without one, carry
+          // the dog's existing owner text over untouched so saving an
+          // unmigrated dog never erases its owner.
+          ownerFirst: clientId ? '' : (d ? d.ownerFirst || '' : ''),
+          ownerLast: clientId ? '' : (d ? d.ownerLast || '' : ''),
+          phone: clientId ? '' : (d ? d.phone || '' : ''),
           employeeId: $('#dEmp', body).value,
           bladeHead: $('#dBladeH', body).value.trim(),
           bladeBody: $('#dBladeB', body).value.trim(),
@@ -568,7 +677,12 @@ export function openDogProfile(id) {
       </div>
 
       <div class="info-grid">
-        ${infoBox(t('owner'), owner)}
+        ${dog.clientId ? `
+          <div class="info-box info-box--link" data-client="${escapeHtml(dog.clientId)}">
+            <div class="info-box__lbl">${escapeHtml(t('owner'))}</div>
+            <div class="info-box__val">${escapeHtml(owner || '—')} <i class="ti ti-chevron-right"></i></div>
+          </div>`
+        : infoBox(t('owner'), owner)}
         ${infoBox(t('birthday'), dog.birthday ? fmtDate(dog.birthday) : '')}
         ${infoBox(t('attended_by'), groomer ? groomer.fullName : '')}
         ${infoBox(t('price'), money(dog.price))}
@@ -652,6 +766,10 @@ export function openDogProfile(id) {
       const pill = body.querySelector('.profile-hero .status-pill');
       if (pill) { pill.className = `status-pill pill-${m.cls}`; pill.innerHTML = `<i class="ti ${m.icon}"></i> ${escapeHtml(t(m.key))}`; }
     });
+
+    // tapping the owner opens their client profile (replaces this modal)
+    $$('[data-client]', body).forEach((el) => el.onclick = () =>
+      openClientProfile(el.getAttribute('data-client')));
 
     // the sheet reuses the same modal root, so reopen the profile when it closes
     body.querySelector('[data-act="sheet"]').onclick = () => openDogSheet(id, () => openDogProfile(id));

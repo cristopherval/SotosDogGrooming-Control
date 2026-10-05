@@ -10,7 +10,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from './config.js';
 import { t } from './i18n.js';
-import { toast } from './utils.js';
+import { toast, normalizePhone } from './utils.js';
 
 export const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: {
@@ -102,6 +102,9 @@ function rowToDog(r) {
   return {
     id: r.id, name: r.name || '', breed: r.breed || '', color: r.color || '',
     sex: r.sex || '', birthday: r.birthday || '',
+    // Owner fields are a projection of `clientId` once it is set — see the
+    // Clients section above.
+    clientId: r.client_id || '',
     ownerFirst: r.owner_first || '', ownerLast: r.owner_last || '', phone: r.phone || '',
     employeeId: r.employee_id || '', price: r.price || '',
     bladeHead: r.blade_head || '', bladeBody: r.blade_body || '',
@@ -119,7 +122,8 @@ function rowToDog(r) {
 function dogToRow(d) {
   return {
     id: d.id, name: d.name, breed: nz(d.breed), color: nz(d.color), sex: nz(d.sex),
-    birthday: nz(d.birthday), owner_first: nz(d.ownerFirst), owner_last: nz(d.ownerLast),
+    birthday: nz(d.birthday), client_id: nz(d.clientId),
+    owner_first: nz(d.ownerFirst), owner_last: nz(d.ownerLast),
     phone: nz(d.phone), employee_id: nz(d.employeeId), price: nz(d.price),
     blade_head: nz(d.bladeHead), blade_body: nz(d.bladeBody),
     comb_head: nz(d.combHead), comb_body: nz(d.combBody),
@@ -128,6 +132,61 @@ function dogToRow(d) {
     pending: !!d.pending, cut_request: nz(d.cutRequest),
     updated_at: nz(d.updatedAt),
   };
+}
+
+// ---------------- Clients ----------------
+//
+// The `clients` table is the source of truth for owner data. The dogs table
+// keeps owner_first / owner_last / phone as a PROJECTION of the linked client,
+// so that every existing read site (dog cards, owner sort, printed sheet and
+// receipt, the visit picker, the kiosk search) keeps working untouched.
+//
+// Invariant: when dog.clientId is set, dog.ownerFirst/ownerLast/phone equal the
+// client's. When it is empty, those fields are the legacy free text AND are the
+// source of truth — that's what keeps dogs registered on the entrance tablet,
+// and everything from before the migration, displaying correctly.
+//
+// Only this module may write that projection, and it does so in exactly three
+// places: upsertDog (derives from the client), upsertClient (fans out to the
+// linked dogs) and hydrateDogOwners (on load).
+
+function rowToClient(r) {
+  return {
+    id: r.id, firstName: r.first_name || '', lastName: r.last_name || '',
+    phone: r.phone || '', notes: r.notes || '', updatedAt: r.updated_at || '',
+  };
+}
+function clientToRow(c) {
+  return {
+    id: c.id, first_name: nz(c.firstName), last_name: nz(c.lastName),
+    phone: nz(c.phone), notes: nz(c.notes), updated_at: nz(c.updatedAt),
+  };
+}
+
+/** Display name of a client, e.g. "María López". */
+export function clientName(c) {
+  if (!c) return '';
+  return [c.firstName, c.lastName].filter(Boolean).join(' ').trim();
+}
+
+/**
+ * The identity of a client, for "is this the same person?" decisions.
+ *
+ * Lowercased, accent-stripped, whitespace-collapsed name plus the normalized
+ * phone. Exported because three different features need to agree on it — the
+ * owner backfill, approving a dog from the entrance tablet, and creating a
+ * client from the dog form. Three separate implementations is exactly how you
+ * end up with "maría lópez" and "maria lopez" as two different clients.
+ *
+ * The phone is part of the key on purpose: two dogs that carry the same owner
+ * name but different phone numbers are two contacts, and collapsing them would
+ * silently throw one of the numbers away.
+ */
+export function clientKey(firstName, lastName, phone) {
+  const name = `${firstName || ''} ${lastName || ''}`
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .toLowerCase().replace(/\s+/g, ' ').trim();
+  return `${name}|${normalizePhone(phone || '')}`;
 }
 
 function rowToEmployee(r) {
@@ -172,15 +231,17 @@ export const store = {
     dogs: [],
     employees: [],
     appointments: [],
+    clients: [],
   },
 
   // Fetch every table into memory. Call once after login.
   async init() {
-    const [dg, em, ap, vc] = await Promise.all([
+    const [dg, em, ap, vc, cl] = await Promise.all([
       sb.from('dogs').select('*'),
       sb.from('employees').select('*'),
       sb.from('appointments').select('*'),
       sb.from('vaccine_catalog').select('*'),
+      sb.from('clients').select('*'),
     ]);
     const err = dg.error || em.error || ap.error || vc.error;
     if (err) { console.error('Store init failed', err); throw err; }
@@ -188,6 +249,35 @@ export const store = {
     this.data.employees = (em.data || []).map(rowToEmployee);
     this.data.appointments = (ap.data || []).map(rowToAppt);
     this.data.vaccineCatalog = (vc.data || []).map(rowToVax);
+
+    // The clients table is deliberately NOT part of the `err` check above: if
+    // it doesn't exist yet (the SQL migration hasn't been run), the app must
+    // degrade to exactly its previous behaviour instead of refusing to load.
+    // In that case every dog keeps its own owner text and nothing is hydrated.
+    if (cl.error) {
+      console.warn('Clients table unavailable — owner data stays per-dog', cl.error);
+      this.data.clients = [];
+      return;
+    }
+    this.data.clients = (cl.data || []).map(rowToClient);
+
+    // Materialize the owner projection. This lives INSIDE init() on purpose:
+    // init() has four callers (boot, the refresh button, the local migration
+    // and a backup restore) and doing it here covers all of them.
+    this.hydrateDogOwners();
+  },
+
+  /** Copy each linked client's name + phone onto its dogs (the projection). */
+  hydrateDogOwners() {
+    if (!this.data.clients.length) return;
+    const byId = new Map(this.data.clients.map((c) => [c.id, c]));
+    this.data.dogs.forEach((d) => {
+      const c = d.clientId ? byId.get(d.clientId) : null;
+      if (!c) return; // no client -> the dog's own fields stay authoritative
+      d.ownerFirst = c.firstName;
+      d.ownerLast = c.lastName;
+      d.phone = c.phone;
+    });
   },
 
   // ---- generic helpers ----
@@ -226,6 +316,21 @@ export const store = {
   getDog(id) { return this.data.dogs.find((d) => d.id === id); },
   async upsertDog(dog) {
     dog.updatedAt = new Date().toISOString(); // any save counts as a modification
+    // Derive the owner projection HERE, not in the callers. Every save site
+    // builds a fresh dog object literal (the dog form, the kiosk form), so a
+    // caller that forgot to carry the owner fields over would otherwise write
+    // NULL on top of them and silently blank the owner out of the dog list,
+    // the owner sort, both printed documents and the visit picker.
+    if (dog.clientId) {
+      const c = this.getClient(dog.clientId);
+      if (c) {
+        dog.ownerFirst = c.firstName;
+        dog.ownerLast = c.lastName;
+        dog.phone = c.phone;
+      } else {
+        dog.clientId = ''; // client is gone: keep the text, drop the dead link
+      }
+    }
     try {
       await this._uploadNewPhotos(dog); // can fail on Storage upload (perms/network)
     } catch (e) {
@@ -247,13 +352,41 @@ export const store = {
   /** Dogs that belong in the normal list (everything except unreviewed ones). */
   approvedDogs() { return this.data.dogs.filter((d) => !d.pending); },
 
-  /** Clear the pending flag — the dog joins the normal list. */
+  /**
+   * Clear the pending flag — the dog joins the normal list.
+   *
+   * This is also where a customer's registration becomes a real client. The
+   * entrance tablet deliberately does NOT create clients itself: that would
+   * let anyone at the door write straight into the shop's client list, which
+   * is the very thing the pending review exists to prevent.
+   */
   async approveDog(id) {
     const dog = this.getDog(id);
     if (!dog) return;
+
+    // Resolve (or create) the client FIRST. A client with no dogs yet is
+    // harmless and visible in the list; a dog pointing at a client row that
+    // failed to insert is not.
+    let client = null;
+    if (!dog.clientId && (dog.ownerFirst || dog.ownerLast || dog.phone)) {
+      client = await this.resolveClient(dog.ownerFirst, dog.ownerLast, dog.phone);
+    }
+
+    const prev = { pending: dog.pending, clientId: dog.clientId };
     dog.pending = false;
-    const { error } = await sb.from('dogs').update({ pending: false }).eq('id', id);
-    if (error) { dog.pending = true; toast(t('save_failed')); throw error; }
+    const patch = { pending: false };
+    if (client) {
+      dog.clientId = client.id;
+      patch.client_id = client.id;
+    }
+
+    const { error } = await sb.from('dogs').update(patch).eq('id', id);
+    if (error) {
+      dog.pending = prev.pending;
+      dog.clientId = prev.clientId;
+      toast(t('save_failed'));
+      throw error;
+    }
   },
 
   async deleteDog(id) {
@@ -261,6 +394,128 @@ export const store = {
     this.data.appointments = this.data.appointments.filter((a) => a.dogId !== id);
     const { error } = await sb.from('dogs').delete().eq('id', id); // DB cascades appointments
     if (error) { toast(t('save_failed')); throw error; }
+  },
+
+  // ---- clients ----
+  getClient(id) { return this.data.clients.find((c) => c.id === id); },
+  clientsSorted() {
+    return this.data.clients.slice()
+      .sort((a, b) => clientName(a).localeCompare(clientName(b)));
+  },
+  /** The dogs of a client. Pending (unreviewed) dogs have no client yet. */
+  dogsForClient(id) {
+    return this.data.dogs
+      .filter((d) => d.clientId === id)
+      .sort((a, b) => a.name.localeCompare(b.name));
+  },
+
+  /** Find the client matching this owner data, or create one. */
+  async resolveClient(firstName, lastName, phone) {
+    const key = clientKey(firstName, lastName, phone);
+    const found = this.data.clients
+      .find((c) => clientKey(c.firstName, c.lastName, c.phone) === key);
+    if (found) return found;
+    const client = {
+      id: this.uid('cli'),
+      firstName: (firstName || '').trim(),
+      lastName: (lastName || '').trim(),
+      phone: (phone || '').trim(),
+      notes: '',
+    };
+    await this.upsertClient(client);
+    return client;
+  },
+
+  async upsertClient(client) {
+    client.updatedAt = new Date().toISOString();
+    const i = this.data.clients.findIndex((c) => c.id === client.id);
+    if (i >= 0) this.data.clients[i] = client; else this.data.clients.push(client);
+
+    const { error } = await sb.from('clients').upsert(clientToRow(client));
+    if (error) { toast(t('save_failed') + ': ' + error.message); throw error; }
+
+    // Fan the new name/phone out to every dog of this client — ONE statement,
+    // never a loop. It is atomic server-side and costs a single round trip; a
+    // loop that failed half way would leave memory and the database
+    // disagreeing with nothing sensible to roll back to.
+    const linked = this.data.dogs.filter((d) => d.clientId === client.id);
+    if (!linked.length) return;
+    linked.forEach((d) => {
+      d.ownerFirst = client.firstName;
+      d.ownerLast = client.lastName;
+      d.phone = client.phone;
+    });
+    const { error: dogErr } = await sb.from('dogs')
+      .update({
+        owner_first: nz(client.firstName),
+        owner_last: nz(client.lastName),
+        phone: nz(client.phone),
+      })
+      .eq('client_id', client.id);
+    if (dogErr) { toast(t('save_failed') + ': ' + dogErr.message); throw dogErr; }
+  },
+
+  async deleteClient(id) {
+    // Memory first (like deleteEmployee) so the clients list and the dog cards
+    // agree straight away.
+    this.data.clients = this.data.clients.filter((c) => c.id !== id);
+    const linked = this.data.dogs.filter((d) => d.clientId === id);
+    linked.forEach((d) => { d.clientId = ''; d.ownerFirst = ''; d.ownerLast = ''; d.phone = ''; });
+
+    // The owner text has to be cleared too, not just the link: `on delete set
+    // null` only nulls client_id, which would leave dogs displaying an owner
+    // that no longer exists AND make the backfill card reappear offering to
+    // re-create the client that was just deleted. The caller's confirm dialog
+    // says how many dogs this affects.
+    if (linked.length) {
+      const { error } = await sb.from('dogs')
+        .update({ client_id: null, owner_first: null, owner_last: null, phone: null })
+        .eq('client_id', id);
+      if (error) { toast(t('save_failed')); throw error; }
+    }
+    const { error } = await sb.from('clients').delete().eq('id', id);
+    if (error) { toast(t('save_failed')); throw error; }
+  },
+
+  /** Dogs that carry owner text but aren't linked to a client yet. */
+  unlinkedOwnerDogs() {
+    return this.data.dogs.filter((d) =>
+      !d.clientId && !d.pending && (d.ownerFirst || d.ownerLast || d.phone));
+  },
+  needsClientBackfill() { return this.unlinkedOwnerDogs().length > 0; },
+
+  /**
+   * One-time migration: turn the owner text already typed on each dog into
+   * real client rows. Groups by `clientKey`, so one person with three dogs
+   * becomes a single client with three dogs linked to them.
+   */
+  async backfillClients(onProgress) {
+    const dogs = this.unlinkedOwnerDogs();
+    if (!dogs.length) return 0;
+
+    const groups = new Map();
+    dogs.forEach((d) => {
+      const key = clientKey(d.ownerFirst, d.ownerLast, d.phone);
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(d);
+    });
+
+    let n = 0;
+    const total = groups.size;
+    for (const group of groups.values()) {
+      const head = group[0];
+      const client = await this.resolveClient(head.ownerFirst, head.ownerLast, head.phone);
+      const ids = group.map((d) => d.id);
+      group.forEach((d) => { d.clientId = client.id; });
+      const { error } = await sb.from('dogs').update({ client_id: client.id }).in('id', ids);
+      if (error) {
+        group.forEach((d) => { d.clientId = ''; }); // roll the link back in memory
+        toast(t('save_failed')); throw error;
+      }
+      n++;
+      if (typeof onProgress === 'function') onProgress(n, total);
+    }
+    return n;
   },
 
   // ---- employees ----
@@ -331,6 +586,9 @@ export const store = {
     const vax = data.vaccineCatalog || [];
     const dogs = data.dogs || [];
     const appts = data.appointments || [];
+    // Missing on backups exported before clients existed — those restore fine,
+    // and importJSON re-runs the owner backfill afterwards.
+    const clients = data.clients || [];
 
     if (employees.length) {
       const { error } = await sb.from('employees').upsert(employees.map(employeeToRow));
@@ -338,6 +596,12 @@ export const store = {
     }
     if (vax.length) {
       const { error } = await sb.from('vaccine_catalog').upsert(vax.map(vaxToRow));
+      if (error) throw error;
+    }
+    // Clients MUST go in before dogs: dogs.client_id references them, so the
+    // other order makes Postgres reject every single dog row.
+    if (clients.length) {
+      const { error } = await sb.from('clients').upsert(clients.map(clientToRow));
       if (error) throw error;
     }
     let n = 0;
@@ -377,12 +641,20 @@ export const store = {
     await this.pushAll(data);
     if (data.settings) { this.data.settings = { ...this.data.settings, ...data.settings }; saveSettings(this.data.settings); }
     await this.init();
+    // A backup taken before clients existed brings dogs with owner text and no
+    // client_id, which unlinks them from clients that are still in the
+    // database. Re-link them so the invariant holds again instead of breaking
+    // invisibly until someone next edits one of those clients.
+    if (this.needsClientBackfill()) {
+      try { await this.backfillClients(); } catch (e) { console.warn('Client re-link after restore failed', e); }
+    }
   },
 
   // ---- stats ----
   stats() {
     return {
       dogs: this.data.dogs.length,
+      clients: this.data.clients.length,
       employees: this.data.employees.length,
       appointments: this.data.appointments.length,
       photos: this.data.dogs.reduce((n, d) => n + normalizePhotos(d.photos).list.length, 0),

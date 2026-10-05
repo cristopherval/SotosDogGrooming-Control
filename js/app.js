@@ -5,7 +5,8 @@ import { $, $$, closeModal, escapeHtml, toast, confirmDialog } from './utils.js'
 import {
   renderDogs, initDogFilters, clearFilters, openDogForm,
 } from './dogs.js';
-import { renderEmployees, openEmployeeForm } from './employees.js';
+import { openEmployeeForm } from './employees.js';
+import { renderClients, openClientForm, initClientFilters } from './clients.js';
 import { renderSettings, exportBackup, triggerImport, handleImportFile, setLanguage } from './settings.js';
 import { openVaccineForm } from './vaccines.js';
 import { activeVisits, markDeparture, serviceLabels, renderAppointments, openVisitForm } from './appointments.js';
@@ -13,10 +14,12 @@ import { fmtTime } from './utils.js';
 import { initThemes, applyTheme, resolveTheme } from './themes.js';
 import { isKioskOn, enterKiosk, initKiosk } from './kiosk.js';
 
+// Employees is not here on purpose: it lives inside Settings now, and
+// renderSettings renders it, so the language switch keeps working for free.
 const views = {
   dogs: renderDogs,
+  clients: renderClients,
   appointments: renderAppointments,
-  employees: renderEmployees,
   settings: renderSettings,
 };
 let currentView = 'dogs';
@@ -119,18 +122,21 @@ function wireEvents() {
       case 'add-dog': openDogForm(); break;
       case 'add-visit': openVisitForm(null, () => { renderAppointments(); renderUpcoming(); }); break;
       case 'add-employee': openEmployeeForm(); break;
+      case 'add-client': openClientForm(); break;
       case 'add-vaccine': openVaccineForm(); break;
       case 'clear-filters': clearFilters(); break;
       case 'export-backup': exportBackup(); break;
       case 'import-backup': triggerImport(); break;
       case 'migrate-local': migrateLocal(btn); break;
+      case 'backfill-clients': backfillClients(btn); break;
       case 'start-kiosk': startKiosk(); break;
       case 'logout': logout(); break;
     }
   });
 
-  // filters
+  // search + filter inputs (wired once, never inside a render)
   initDogFilters();
+  initClientFilters();
 
   // import file input
   $('#importFile').addEventListener('change', (e) => {
@@ -247,6 +253,28 @@ async function bootApp({ fromLogin = false } = {}) {
   // This device is the entrance tablet: cover the app with the welcome screen.
   // Skipped right after a manual sign-in — see the note above.
   if (!fromLogin && isKioskOn()) enterKiosk(backFromKiosk);
+}
+
+// ---------------- One-time owner→client migration ----------------
+// Turns the owner text already typed on each dog into real client rows, one
+// client per owner, and links their dogs. Only offered while some dog is still
+// unlinked, so the card disappears once there is nothing left to do.
+async function backfillClients(btn) {
+  if (!store.needsClientBackfill()) return;
+  const label = btn.querySelector('span');
+  btn.disabled = true;
+  try {
+    await store.backfillClients((n, total) => {
+      label.textContent = t('backfill_running', { n, total });
+    });
+    toast(t('backfill_done'));
+    showView('settings');
+  } catch (e) {
+    console.error(e);
+    toast(t('backfill_failed'));
+    btn.disabled = false;
+    label.textContent = t('backfill_btn');
+  }
 }
 
 // ---------------- One-time local→cloud migration ----------------

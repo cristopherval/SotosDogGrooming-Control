@@ -155,6 +155,7 @@
 }
 [data-theme='glass'] .soft-card,
 [data-theme='glass'] .dog-card,
+[data-theme='glass'] .client-card,
 [data-theme='glass'] .emp-card,
 [data-theme='glass'] .modal-shell {
   background: rgb(var(--surface-rgb) / .7);
@@ -166,6 +167,7 @@
 /* ---- Clay: give the app cards the neumorphic lift ---- */
 [data-theme='clay'] .soft-card,
 [data-theme='clay'] .dog-card,
+[data-theme='clay'] .client-card,
 [data-theme='clay'] .emp-card {
   box-shadow: var(--shadow);
   border-color: transparent;
@@ -174,6 +176,7 @@
 /* ---- Brutal: thick black borders, hard offset shadow, square corners ---- */
 [data-theme='brutal'] .soft-card,
 [data-theme='brutal'] .dog-card,
+[data-theme='brutal'] .client-card,
 [data-theme='brutal'] .emp-card,
 [data-theme='brutal'] .modal-shell {
   border-width: 2px; border-color: var(--border);

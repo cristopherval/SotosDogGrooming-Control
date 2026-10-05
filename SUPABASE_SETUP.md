@@ -31,6 +31,14 @@ Supabase project. Takes ~10 minutes.
 
 ```sql
 -- Tables --------------------------------------------------------------
+create table clients (
+  id text primary key,
+  first_name text, last_name text,
+  phone text,
+  notes text,
+  updated_at text
+);
+
 create table employees (
   id text primary key,
   full_name text not null,
@@ -44,6 +52,7 @@ create table dogs (
   name text not null,
   breed text, color text, sex text,
   birthday date,
+  client_id text references clients(id) on delete set null,
   owner_first text, owner_last text, phone text,
   employee_id text references employees(id) on delete set null,
   blade_head text, blade_body text, comb_head text, comb_body text,
@@ -80,11 +89,13 @@ values ('vax_rabies', 'Rabies', 12) on conflict (id) do nothing;
 
 -- Security (Row Level Security): only logged-in users can read/write -----
 alter table dogs enable row level security;
+alter table clients enable row level security;
 alter table employees enable row level security;
 alter table appointments enable row level security;
 alter table vaccine_catalog enable row level security;
 
 create policy "auth full access" on dogs            for all to authenticated using (true) with check (true);
+create policy "auth full access" on clients         for all to authenticated using (true) with check (true);
 create policy "auth full access" on employees       for all to authenticated using (true) with check (true);
 create policy "auth full access" on appointments    for all to authenticated using (true) with check (true);
 create policy "auth full access" on vaccine_catalog for all to authenticated using (true) with check (true);
@@ -102,6 +113,52 @@ create policy "auth full access" on vaccine_catalog for all to authenticated usi
 > alter table appointments add column if not exists time_out text;
 > alter table appointments add column if not exists price text;
 > ```
+>
+> The **Clients** section needs its own table plus one column on `dogs`:
+> ```sql
+> create table if not exists clients (
+>   id text primary key,
+>   first_name text, last_name text,
+>   phone text,
+>   notes text,
+>   updated_at text
+> );
+> alter table dogs add column if not exists client_id text references clients(id) on delete set null;
+>
+> alter table clients enable row level security;
+> create policy "auth full access" on clients for all to authenticated using (true) with check (true);
+> ```
+
+### Clients (`clients` table + `dogs.client_id`)
+
+A **client** is the person; a dog belongs to one. Their name and phone live in
+the `clients` table, and editing a client updates every one of their dogs at
+once instead of you retyping the owner on each dog.
+
+`dogs.owner_first`, `dogs.owner_last` and `dogs.phone` stay, as a **copy** of
+the linked client that the app keeps in sync. That is what lets the dog cards,
+the "sort by owner" option, the printed grooming sheet, the receipt, the visit
+picker and the entrance-tablet search go on working exactly as before. A dog
+with no `client_id` — anything from before this update, and any dog registered
+on the tablet and not approved yet — keeps using its own owner text, so nothing
+is lost while you migrate.
+
+**Run the SQL before publishing this update.** The rule is the same as above but
+matters more here: the new code sends `client_id` with every dog it saves, and
+until the column exists Supabase rejects the whole row, so **no dog can be
+saved**. Running the SQL first is harmless for the version the shop is using.
+
+Then, once the update is published: open **Settings**, where a **"Link existing
+owners"** card appears. Tapping it creates one client per owner already typed on
+your dogs and links their dogs to them. It groups by name **and** phone number,
+so two dogs carrying the same owner name but different numbers stay two separate
+contacts rather than one of the numbers being thrown away. The card disappears
+when there is nothing left to link.
+
+> Dogs registered by customers on the entrance tablet do **not** create clients.
+> They stay in *"New dogs to review"* as before, and the client is created (or
+> matched to an existing one) when you **approve** the dog — so the public can
+> never write straight into your client list.
 
 ### Routine Care checkboxes (`care` column)
 

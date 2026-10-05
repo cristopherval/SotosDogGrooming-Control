@@ -36,6 +36,9 @@ let onExit = null; // set by init(): hands control back to app.js
 
 /** Lowercase + strip accents, so "Lolá" matches "lola". */
 function norm(s) {
+  // The combining-marks range is written as escapes on purpose: as literal
+  // bytes it silently stops stripping accents if the file is ever re-saved in
+  // another encoding.
   return (s || '').toString().toLowerCase()
     .normalize('NFD').replace(/[̀-ͯ]/g, '');
 }
@@ -219,8 +222,15 @@ function showResults(query, el) {
   if (!q) { box.innerHTML = ''; return; }
 
   // Only approved dogs: a dog still waiting for review isn't findable yet.
+  // Matches the dog's name OR the owner's, so a customer who doesn't remember
+  // how their dog is spelled in our system can just type their own name. Reads
+  // the owner fields on the dog (not a join through clients) so it also works
+  // for dogs that aren't linked to a client row yet.
   const hits = store.approvedDogs()
-    .filter((d) => norm(d.name).includes(q))
+    .filter((d) => {
+      const owner = `${d.ownerFirst || ''} ${d.ownerLast || ''}`;
+      return norm(d.name).includes(q) || norm(owner).includes(q);
+    })
     .sort((a, b) => a.name.localeCompare(b.name));
 
   if (!hits.length) {

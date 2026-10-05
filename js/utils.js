@@ -10,6 +10,16 @@ export function escapeHtml(str = '') {
     .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
+/**
+ * Lowercase + strip accents, for searching. Names here are Spanish, and nobody
+ * types the accents into a search box: "lopez" has to find "López".
+ */
+export function normText(s = '') {
+  return String(s)
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .toLowerCase().trim();
+}
+
 export function initials(name = '') {
   return name.trim().split(/\s+/).slice(0, 2).map((w) => w[0] || '').join('').toUpperCase() || '?';
 }
